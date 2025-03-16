@@ -31,7 +31,7 @@ void printLine(Cell start, Cell end) {
   }
 }
 
-// Shows a menu and wait for the user to select an option.
+// Shows a menu and wait for the user to select an option. Returns that option's number.
 int showMenu(PtrArray *options) {
   int tWidth = 0;
   int tHeight = 0;
@@ -48,7 +48,7 @@ int showMenu(PtrArray *options) {
   width += 4;
   height += 3;
 
-  // ulCornerRow: "Up-left corner's row".
+  // ulCornerRow stands for "Up-left corner's row".
   int ulCornerRow = (tHeight - height) / 2;
   int ulCornerCol = (tWidth - width) / 2;
   Cell ulCorner = {ulCornerRow, ulCornerCol};
@@ -62,7 +62,7 @@ int showMenu(PtrArray *options) {
 
   int selectedOption = 0;
   int keyPressed = 0;
-  curs_set(0);
+  curs_set(0);  // Hides the cursor.
   do {
     for (int i = 0; i < options->len; i++) {
       move(ulCornerRow + i + 2, ulCornerCol + 2);
@@ -83,7 +83,7 @@ int showMenu(PtrArray *options) {
       selectedOption = (selectedOption == lastPosition) ? 0 : selectedOption + 1;
     }
   } while (keyPressed != '\n');
-  curs_set(1);
+  curs_set(1);  // Makes cursor visible again.
   return selectedOption;
 }
 

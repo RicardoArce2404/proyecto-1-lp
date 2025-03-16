@@ -10,16 +10,18 @@ typedef struct String {
 } String;
 
 String *newString(char *originalString) {
-  String *str = (String*)malloc(sizeof(String));
-  if (str == NULL) {
-    return NULL;
-  }
   int len = 0;
-  while (originalString[len] != '\0') {
-    len++;
+  while (originalString[len] != '\0') len++;
+  if (len == 0) {
+    return NULL;
   }
   char *text = (char*)malloc(sizeof(char) * len);
   if (text == NULL) {
+    return NULL;
+  }
+  String *str = (String*)malloc(sizeof(String));
+  if (str == NULL) {
+    free(text);
     return NULL;
   }
   memcpy(text, originalString, len);
