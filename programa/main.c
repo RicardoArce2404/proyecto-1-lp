@@ -26,7 +26,9 @@ int main() {
   getch();
   endwin();
 
+  deleteString(options->data[1]);
+  ptrArrayRemove(1, options);
   for (int i = 0; i < options->len; i++) deleteString(options->data[i]);
-  deleteArray(options);
+  deletePtrArray(options);
   return 0;
 }
