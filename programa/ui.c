@@ -84,6 +84,7 @@ int showMenu(PtrArray *options) {
     }
   } while (keyPressed != '\n');
   curs_set(1);  // Makes cursor visible again.
+  clear();  // Clears the screen.
   return selectedOption;
 }
 
