@@ -2,12 +2,12 @@ CREATE DATABASE puntodeventa;
 USE puntodeventa;
 
 CREATE TABLE Familia (
-	id_familia int primary key auto_increment ,
+	id_familia int primary key ,
     descripcion varchar(100)
 );
 
 CREATE TABLE Producto (
-	id_producto int primary key auto_increment,
+	id_producto int primary key,
     descripcion varchar(100),
     stock int,
     costo float,
