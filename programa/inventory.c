@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "main.c"
+#include <mysql/mysql.h>
 
 void registerProductFamily(MYSQL *conn) {
     char descripcion[100];
