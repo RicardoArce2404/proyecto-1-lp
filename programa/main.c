@@ -3,7 +3,9 @@
 #include <mysql/mysql.h>
 #include "string.c"
 #include "array.c"
-#include "ui.c"  // Ui!
+#include "ui.c"  // Ui! Ui!
+#include "login.c" 
+#include "inventory.c"
 
 MYSQL *conn;
 
@@ -21,64 +23,6 @@ void editQuotation() {
 
 // TO DO.
 void makeInvoice() {
-}
-
-// Registrar familia de productos
-void registerProductFamily() {
-    char descripcion[100];
-    printw("Ingrese la descripción de la familia: ");
-    echo(); // Habilitar la visualización de la entrada
-    scanw("%s", descripcion);
-    noecho(); // Deshabilitar la visualización de la entrada
-
-    char query[256];
-    snprintf(query, sizeof(query), "INSERT INTO Familia (descripcion) VALUES ('%s')", descripcion);
-
-    if (mysql_query(conn, query)) {
-        printw("Error al registrar la familia: %s\n", mysql_error(conn));
-    } else {
-        printw("Familia registrada con éxito.\n");
-    }
-    refresh();
-    getch();
-}
-
-// Registrar producto
-void registerProduct() {
-    char descripcion[100];
-    int stock, id_familia;
-    float costo, precio;
-
-    printw("Ingrese la descripción del producto: ");
-    echo();
-    scanw("%s", descripcion);
-    noecho();
-
-    printw("Ingrese el stock: ");
-    scanw("%d", &stock);
-
-    printw("Ingrese el costo: ");
-    scanw("%f", &costo);
-
-    printw("Ingrese el precio: ");
-    scanw("%f", &precio);
-
-    printw("Ingrese el ID de la familia: ");
-    scanw("%d", &id_familia);
-
-    char query[256];
-    snprintf(query, sizeof(query), 
-             "INSERT INTO Producto (descripcion, stock, costo, precio, id_familia) "
-             "VALUES ('%s', %d, %f, %f, %d)", 
-             descripcion, stock, costo, precio, id_familia);
-
-    if (mysql_query(conn, query)) {
-        printw("Error al registrar el producto: %s\n", mysql_error(conn));
-    } else {
-        printw("Producto registrado con éxito.\n");
-    }
-    refresh();
-    getch();
 }
 
 // TO DO.
@@ -107,10 +51,10 @@ void adminOpts() {
     selectedOpt = showMenu(opts);
     switch (selectedOpt) {
       case 0:
-        registerProductFamily();
+        registerProductFamily(conn);
         break;
       case 1:
-        registerProduct();
+        registerProduct(conn);
         break;
       case 2:
         LoadInventory();
@@ -163,6 +107,37 @@ void generalOpts() {
   deletePtrArray(opts);
 }
 
+void initialOpts(){
+  PtrArray *opts = newPtrArray();
+  ptrArrayAppend(newString("Iniciar sesión"), opts);
+  ptrArrayAppend(newString("Opciones generales"), opts);
+  ptrArrayAppend(newString("Salir"), opts);
+
+  int selectedOpt = 0;
+  while (selectedOpt != 5) {
+    selectedOpt = showMenu(opts);
+    switch (selectedOpt) {
+      case 0:
+        if (adminLogin(conn)) {
+          adminOpts();  // Mostrar opciones administrativas si el login es exitoso
+        } else {
+          printw("Presione cualquier tecla para continuar...\n");
+          getch();
+        }
+        break;
+      case 1:
+        generalOpts();
+        break;
+      case 2:
+        printw("Saliendo...\n");
+        break;
+    }
+  }
+
+  for (int i = 0; i < opts->len; i++) deleteString(opts->data[i]);
+  deletePtrArray(opts);
+}
+
 int main() {
   setlocale(LC_CTYPE, "");
   initscr();
@@ -175,15 +150,16 @@ int main() {
   if (!conn) {
       printw("Error al inicializar la conexión a MySQL.\n");
       endwin();
+      return 1;
   }
 
   if (!mysql_real_connect(conn, "localhost", "root", "Jdmfg2920**", "puntodeventa", 3306, NULL, 0)) {
       printw("Error al conectar a la base de datos: %s\n", mysql_error(conn));
       endwin();
+      return 1;
   }
 
-  generalOpts(); // Llamar al menú principal una sola vez
-
+  initialOpts();
   // Cerrar la conexión a la base de datos
   mysql_close(conn);
 

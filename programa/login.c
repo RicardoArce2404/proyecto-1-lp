@@ -53,7 +53,6 @@ int validateAdminLogin(MYSQL *conn, const char *username, const char *password) 
 
     // Comparar el hash almacenado con el hash de la contraseña ingresada
     if (strcmp(storedHash, hashedPassword) == 0) {
-        printw("Inicio de sesión exitoso.\n");
         mysql_free_result(result);
         mysql_free_result(hashedResult);
         return 1; // Credenciales correctas
