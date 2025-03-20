@@ -1,4 +1,4 @@
-#include <ncurses.h>
+#include <ncursesw/curses.h>
 #include <locale.h>
 #include "string.c"
 #include "array.c"
@@ -24,6 +24,11 @@ void makeInvoice() {
 
 // TO DO.
 void registerProductFamily() {
+  String *filename = showInput(UiTextInput, 3);
+  move(20, 1);
+  printw("%.*s", filename->len, filename->text);
+  deleteString(filename);
+  // TO DO: read file and add families
 }
 
 // TO DO.
