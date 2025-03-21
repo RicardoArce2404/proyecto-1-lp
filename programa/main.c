@@ -76,30 +76,26 @@ void adminOpts() {
 
 void generalOpts() {
   PtrArray *opts = newPtrArray();
-  ptrArrayAppend(newString("Opciones administrativas"), opts);
   ptrArrayAppend(newString("Consulta de catálogo"), opts);
   ptrArrayAppend(newString("Cotizar"), opts);
   ptrArrayAppend(newString("Modificar cotización"), opts);
   ptrArrayAppend(newString("Facturar"), opts);
-  ptrArrayAppend(newString("Salir"), opts);
+  ptrArrayAppend(newString("Regresar"), opts);
 
   int selectedOpt = 0;
-  while (selectedOpt != 5) {
+  while (selectedOpt != 4) {
     selectedOpt = showMenu(opts);
     switch (selectedOpt) {
       case 0:
-        adminOpts();
-        break;
-      case 1:
         catalogQuery();
         break;
-      case 2:
+      case 1:
         makeQuotation();
         break;
-      case 3:
+      case 2:
         editQuotation();
         break;
-      case 4:
+      case 3:
         makeInvoice();
         break;
     }
