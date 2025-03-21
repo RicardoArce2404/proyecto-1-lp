@@ -1,11 +1,13 @@
 #include <ncurses.h>
 #include <locale.h>
 #include <mysql/mysql.h>
+#include <string.h>
 #include "string.c"
 #include "array.c"
 #include "ui.c"  // Ui! Ui!
 #include "login.c" 
 #include "inventory.c"
+#include "filehandling.c"
 
 MYSQL *conn;
 
@@ -80,25 +82,22 @@ void generalOpts() {
   ptrArrayAppend(newString("Cotizar"), opts);
   ptrArrayAppend(newString("Modificar cotización"), opts);
   ptrArrayAppend(newString("Facturar"), opts);
-  ptrArrayAppend(newString("Salir"), opts);
+  ptrArrayAppend(newString("Regresar"), opts);
 
   int selectedOpt = 0;
-  while (selectedOpt != 5) {
+  while (selectedOpt != 4) {
     selectedOpt = showMenu(opts);
     switch (selectedOpt) {
       case 0:
-        adminOpts();
-        break;
-      case 1:
         catalogQuery();
         break;
-      case 2:
+      case 1:
         makeQuotation();
         break;
-      case 3:
+      case 2:
         editQuotation();
         break;
-      case 4:
+      case 3:
         makeInvoice();
         break;
     }
@@ -115,7 +114,7 @@ void initialOpts(){
   ptrArrayAppend(newString("Salir"), opts);
 
   int selectedOpt = 0;
-  while (selectedOpt != 5) {
+  while (selectedOpt != 2) {
     selectedOpt = showMenu(opts);
     switch (selectedOpt) {
       case 0:
@@ -154,11 +153,29 @@ int main() {
       return 1;
   }
 
-  if (!mysql_real_connect(conn, "localhost", "root", "Jdmfg2920**", "puntodeventa", 3306, NULL, 0)) {
+  int isRicardo = 0;
+  File *hostnameFile = readFile("/etc/hostname");
+  if (memcmp(hostnameFile->content, "Ideapad3", hostnameFile->len - 1) == 0) {
+    isRicardo = 1;
+  }
+  freeFile(hostnameFile);
+
+  if (isRicardo) {
+    if (!mysql_real_connect(conn, "localhost", "root", "", "puntodeventa", 3306, NULL, 0)) {
       printw("Error al conectar a la base de datos: %s\n", mysql_error(conn));
+      getch();
       endwin();
       return 1;
+    }
+  } else {
+    if (!mysql_real_connect(conn, "localhost", "root", "Jdmfg2920**", "puntodeventa", 3306, NULL, 0)) {
+      printw("Error al conectar a la base de datos: %s\n", mysql_error(conn));
+      getch();
+      endwin();
+      return 1;
+    }
   }
+
 
   initialOpts();
   // Cerrar la conexión a la base de datos
