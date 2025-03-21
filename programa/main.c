@@ -41,6 +41,7 @@ void adminOpts() {
   PtrArray *opts = newPtrArray();
   ptrArrayAppend(newString("Registrar familia de productos"), opts);
   ptrArrayAppend(newString("Registrar producto"), opts);
+  ptrArrayAppend(newString("Eliminar producto"), opts);
   ptrArrayAppend(newString("Cargar inventario"), opts);
   ptrArrayAppend(newString("Consultar factura"), opts);
   ptrArrayAppend(newString("Estadísticas"), opts);
@@ -52,6 +53,7 @@ void adminOpts() {
     switch (selectedOpt) {
       case 0:
         registerProductFamily(conn);
+        adminOpts();
         break;
       case 1:
         registerProduct(conn);
@@ -74,7 +76,6 @@ void adminOpts() {
 
 void generalOpts() {
   PtrArray *opts = newPtrArray();
-  ptrArrayAppend(newString("Opciones administrativas"), opts);
   ptrArrayAppend(newString("Consulta de catálogo"), opts);
   ptrArrayAppend(newString("Cotizar"), opts);
   ptrArrayAppend(newString("Modificar cotización"), opts);

@@ -219,7 +219,4 @@ void deleteFloatArray(FloatArray *array) {
   free(array);
 }
 
-
-
-
 #endif
