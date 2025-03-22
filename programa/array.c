@@ -1,28 +1,26 @@
-#include <stdlib.h>
-
 #ifndef ARRAY
 #define ARRAY
-
-
+#include <stdlib.h>
+#include "string.c"
 
 // O------------------- PtrArray implementation -------------------O
 
 // Array that stores pointers.
 typedef struct PtrArray {
   void **data;  // Pointer to first item (pointer to a void pointer).
-  int len;  // Array's length (number of used items).
-  int capacity;  // Array's capacity (number of items that can be stored).
+  int len;      // Array's length (number of used items).
+  int capacity; // Array's capacity (number of items that can be stored).
 } PtrArray;
 
 // Creates a new array that stores pointers.
 PtrArray *newPtrArray() {
   const int INITIAL_CAPACITY = 10;
-  void **data = malloc(sizeof(void*) * INITIAL_CAPACITY);
+  void **data = malloc(sizeof(void *) * INITIAL_CAPACITY);
   if (data == NULL) {
     return NULL;
   }
 
-  PtrArray *array = (PtrArray*)malloc(sizeof(PtrArray));
+  PtrArray *array = (PtrArray *)malloc(sizeof(PtrArray));
   array->data = data;
   array->len = 0;
   array->capacity = INITIAL_CAPACITY;
@@ -35,7 +33,7 @@ void resizePtrArray(PtrArray *array, int newCapacity) {
   if (array == NULL) {
     return;
   }
-  array->data = (void**)realloc(array->data, sizeof(void*) * newCapacity);
+  array->data = (void **)realloc(array->data, sizeof(void *) * newCapacity);
   array->capacity = newCapacity;
 }
 
@@ -45,7 +43,9 @@ void ptrArrayAppend(void *item, PtrArray *array) {
     return;
   }
   if (array->len == array->capacity) {
-    resizePtrArray(array, array->capacity * 2);  // The capacity doubles every time it gets full.
+    resizePtrArray(array,
+                   array->capacity *
+                       2); // The capacity doubles every time it gets full.
   }
   array->data[array->len] = item;
   array->len++;
@@ -64,7 +64,7 @@ void ptrArrayRemove(int index, PtrArray *array) {
   }
   int i = index;
   while (i < array->len) {
-    array->data[i] = array->data[i+1];
+    array->data[i] = array->data[i + 1];
     i++;
   }
   array->len--;
@@ -75,15 +75,13 @@ void deletePtrArray(PtrArray *array) {
   free(array);
 }
 
-
-
 // O------------------- IntArray implementation -------------------O
 
 // Array that stores integers.
 typedef struct IntArray {
-  int *data;  // Pointer to first item.
-  int len;  // Array's length (number of used items).
-  int capacity;  // Array's capacity (number of items that can be stored).
+  int *data;    // Pointer to first item.
+  int len;      // Array's length (number of used items).
+  int capacity; // Array's capacity (number of items that can be stored).
 } IntArray;
 
 // Creates a new array that stores integers.
@@ -94,7 +92,7 @@ IntArray *newIntArray() {
     return NULL;
   }
 
-  IntArray *array = (IntArray*)malloc(sizeof(IntArray));
+  IntArray *array = (IntArray *)malloc(sizeof(IntArray));
   array->data = data;
   array->len = 0;
   array->capacity = INITIAL_CAPACITY;
@@ -107,7 +105,7 @@ void resizeIntArray(IntArray *array, int newCapacity) {
   if (array == NULL) {
     return;
   }
-  array->data = (int*)realloc(array->data, sizeof(int) * newCapacity);
+  array->data = (int *)realloc(array->data, sizeof(int) * newCapacity);
   array->capacity = newCapacity;
 }
 
@@ -117,7 +115,9 @@ void intArrayAppend(int item, IntArray *array) {
     return;
   }
   if (array->len == array->capacity) {
-    resizeIntArray(array, array->capacity * 2);  // The capacity doubles every time it gets full.
+    resizeIntArray(array,
+                   array->capacity *
+                       2); // The capacity doubles every time it gets full.
   }
   array->data[array->len] = item;
   array->len++;
@@ -136,7 +136,7 @@ void intArrayRemove(int index, IntArray *array) {
   }
   int i = index;
   while (i < array->len) {
-    array->data[i] = array->data[i+1];
+    array->data[i] = array->data[i + 1];
     i++;
   }
   array->len--;
@@ -147,15 +147,13 @@ void deleteIntArray(IntArray *array) {
   free(array);
 }
 
-
-
-// O------------------- FloatArray implementation -------------------O
+// O------------------ FloatArray implementation ------------------O
 
 // Array that stores floats.
 typedef struct FloatArray {
   float *data;  // Pointer to first item.
-  int len;  // Array's length (number of used items).
-  int capacity;  // Array's capacity (number of items that can be stored).
+  int len;      // Array's length (number of used items).
+  int capacity; // Array's capacity (number of items that can be stored).
 } FloatArray;
 
 // Creates a new array that stores integers.
@@ -166,7 +164,7 @@ FloatArray *newFloatArray() {
     return NULL;
   }
 
-  FloatArray *array = (FloatArray*)malloc(sizeof(FloatArray));
+  FloatArray *array = (FloatArray *)malloc(sizeof(FloatArray));
   array->data = data;
   array->len = 0;
   array->capacity = INITIAL_CAPACITY;
@@ -179,7 +177,7 @@ void resizeFloatArray(FloatArray *array, int newCapacity) {
   if (array == NULL) {
     return;
   }
-  array->data = (float*)realloc(array->data, sizeof(float) * newCapacity);
+  array->data = (float *)realloc(array->data, sizeof(float) * newCapacity);
   array->capacity = newCapacity;
 }
 
@@ -189,7 +187,9 @@ void floatArrayAppend(float item, FloatArray *array) {
     return;
   }
   if (array->len == array->capacity) {
-    resizeFloatArray(array, array->capacity * 2);  // The capacity doubles every time it gets full.
+    resizeFloatArray(array,
+                     array->capacity *
+                         2); // The capacity doubles every time it gets full.
   }
   array->data[array->len] = item;
   array->len++;
@@ -208,7 +208,7 @@ void floatArrayRemove(int index, FloatArray *array) {
   }
   int i = index;
   while (i < array->len) {
-    array->data[i] = array->data[i+1];
+    array->data[i] = array->data[i + 1];
     i++;
   }
   array->len--;
@@ -219,7 +219,14 @@ void deleteFloatArray(FloatArray *array) {
   free(array);
 }
 
+// O----------------------- Other utilities -----------------------O
 
-
+// Deletes every string in the array and then deletes the array itself.
+void deleteStringArray(PtrArray *ptr) {
+  for (int i = 0; i < ptr->len; i++) {
+    deleteString((String*)(ptr->data[i]));
+  }
+  deletePtrArray(ptr);
+}
 
 #endif

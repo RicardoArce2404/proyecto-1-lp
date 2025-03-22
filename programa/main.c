@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <ncurses.h>
 #include <locale.h>
 #include <mysql/mysql.h>
@@ -15,8 +16,56 @@ MYSQL *conn;
 void catalogQuery() {
 }
 
-// TO DO.
 void makeQuotation() {
+  PtrArray *headings = newPtrArray();
+  ptrArrayAppend(newString("#"), headings);
+  ptrArrayAppend(newString("Encabezado1"), headings);
+
+  IntArray *widths = newIntArray();
+  intArrayAppend(5, widths);
+  intArrayAppend(20, widths);
+
+  PtrArray *row1 = newPtrArray();
+  ptrArrayAppend(newString("1"), row1);
+  ptrArrayAppend(newString("celda1"), row1);
+  PtrArray *row2 = newPtrArray();
+  ptrArrayAppend(newString("2"), row2);
+  ptrArrayAppend(newString("celda2"), row2);
+  PtrArray *row3 = newPtrArray();
+  ptrArrayAppend(newString("3"), row3);
+  ptrArrayAppend(newString("celda3"), row3);
+  PtrArray *row4 = newPtrArray();
+  ptrArrayAppend(newString("4"), row4);
+  ptrArrayAppend(newString("celda4"), row4);
+  PtrArray *row5 = newPtrArray();
+  ptrArrayAppend(newString("5"), row5);
+  ptrArrayAppend(newString("celda5"), row5);
+  PtrArray *row6 = newPtrArray();
+  ptrArrayAppend(newString("6"), row6);
+  ptrArrayAppend(newString("celda6"), row6);
+  PtrArray *row7 = newPtrArray();
+  ptrArrayAppend(newString("7"), row7);
+  ptrArrayAppend(newString("celda7"), row7);
+
+  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  ptrArrayAppend(row1, rows);
+  ptrArrayAppend(row2, rows);
+  ptrArrayAppend(row3, rows);
+  ptrArrayAppend(row4, rows);
+  ptrArrayAppend(row5, rows);
+  ptrArrayAppend(row6, rows);
+  ptrArrayAppend(row7, rows);
+
+  String *title = newString("titulo");
+  showScrollableList(title, headings, rows, widths);
+  deleteString(title);
+
+  deleteStringArray(headings);
+  deleteIntArray(widths);
+  for (int i = 0; i < rows->len; i++) {
+    deleteStringArray(rows->data[i]);
+  }
+  deletePtrArray(rows);
 }
 
 // TO DO.
