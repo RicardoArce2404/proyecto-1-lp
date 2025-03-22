@@ -1,0 +1,7 @@
+1,Enlatados
+2,Granos básicos
+3,Lácteos
+4,Frutos secos
+5,Frutas
+6,Verduras
+7,Semillas
