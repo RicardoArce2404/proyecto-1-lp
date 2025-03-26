@@ -62,11 +62,36 @@ void makeQuotation() {
         input = showInput(title, 2, 1);
       }
       deleteString(title);
+      /*int id = toInt(input);*/
       deleteString(input);
+      // TO DO: Query DB to get product info using product's ID.
+      PtrArray *newRow = newPtrArray();
+      ptrArrayAppend(newString("1"), newRow);
+      ptrArrayAppend(newString("1234"), newRow);
+      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newRow, rows);
       break;
     }
-    case '-':
+    case '-': {
+      if (rows->len == 0) {
+        break;
+      }
+      String *title = newString("Eliminar producto (Fila)");
+      String *input = showInput(title, 2, 0);
+      while (input == NULL || !isNumber(input)) {
+        deleteString(input);
+        input = showInput(title, 2, 1);
+      }
+      deleteString(title);
+      int row = toInt(input) - 1;
+      deleteString(input);
+      if (0 <= row && row <= rows->len - 1) {
+        deleteStringArray(rows->data[row]);
+        ptrArrayRemove(row, rows);
+      }
       break;
+    }
     }
   } while (keyPressed != '\n');
   deleteString(title);

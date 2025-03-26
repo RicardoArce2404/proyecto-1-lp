@@ -67,4 +67,13 @@ int isNumber(String *str) {
   return 1;
 }
 
+int toInt(String *str) {
+  char *buffer = malloc(str->len + 1);
+  memcpy(buffer, str->text, str->len);
+  buffer[str->len] = '\0';
+  int value = atoi(buffer);
+  free(buffer);
+  return value;
+}
+
 #endif
