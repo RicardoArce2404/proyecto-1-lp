@@ -22,12 +22,12 @@ void printLine(Cell start, Cell end) {
   if (start.row == end.row) {
     for (int i = start.col; i <= end.col; i++) {
       move(start.row, i);
-      printw("█");
+      printw("─");
     }
   } else if (start.col == end.col) {
     for (int i = start.row; i <= end.row; i++) {
       move(i, start.col);
-      printw("█");
+      printw("│");
     }
   } else {
     return;
@@ -43,6 +43,14 @@ void printRectangle(Cell ulCorner, int width, int height) {
   printLine(dlCorner, drCorner);
   printLine(ulCorner, dlCorner);
   printLine(urCorner, drCorner);
+  move(ulCorner.row, ulCorner.col);
+  printw("╭");
+  move(urCorner.row, urCorner.col);
+  printw("╮");
+  move(dlCorner.row, dlCorner.col);
+  printw("╰");
+  move(drCorner.row, drCorner.col);
+  printw("╯");
   refresh();
 }
 
@@ -57,7 +65,6 @@ void clearBlock(Cell ulCorner, int width, int height) {
   refresh();
 }
 
-
 // Shows a menu and waits for the user to select an option. Returns that
 // option's number.
 int showMenu(PtrArray *options) {
@@ -68,8 +75,8 @@ int showMenu(PtrArray *options) {
   int height = options->len;
   for (int i = 0; i < options->len; i++) {
     String *line = options->data[i];
-    if (line->len > width) {
-      width = line->len;
+    if (getVisualLen(line) > width) {
+      width = getVisualLen(line);
     }
   }
   // Extra space to correct visual issues.
@@ -80,13 +87,8 @@ int showMenu(PtrArray *options) {
   int ulCornerRow = (tHeight - height) / 2;
   int ulCornerCol = (tWidth - width) / 2;
   Cell ulCorner = {ulCornerRow, ulCornerCol};
-  Cell urCorner = {ulCornerRow, ulCornerCol + width};
-  Cell dlCorner = {ulCornerRow + height, ulCornerCol};
-  Cell drCorner = {ulCornerRow + height, ulCornerCol + width};
-  printLine(ulCorner, urCorner);
-  printLine(dlCorner, drCorner);
-  printLine(ulCorner, dlCorner);
-  printLine(urCorner, drCorner);
+  clear();     // Clears the screen.
+  printRectangle(ulCorner, width, height);
 
   int selectedOption = 0;
   int keyPressed = 0;
@@ -114,7 +116,6 @@ int showMenu(PtrArray *options) {
     }
   } while (keyPressed != '\n');
   curs_set(1); // Makes cursor visible again.
-  clear();     // Clears the screen.
   return selectedOption;
 }
 
@@ -124,10 +125,25 @@ typedef enum UiInputType {
   UiFilenameInput
 } UiInputType;
 
+// Prints a string centered in the given width.
+void printCentered(String *str, int width) {
+  if (getVisualLen(str) > width) {
+    printw("%.*s...", width - 3, str->text);
+  } else {
+    int blankSpace = width - getVisualLen(str);
+    int leftMargin = blankSpace - blankSpace / 2;
+    int rightMargin = blankSpace - leftMargin;
+    move(getcury(stdscr), getcurx(stdscr) + leftMargin);
+    printw("%.*s", str->len, str->text);
+    move(getcury(stdscr), getcurx(stdscr) + rightMargin);
+  }
+  refresh();
+}
 
 // Shows an input textbox and waits for the user to enter valid text according
 // to inputType. Appears at the specified row and gets wider as needed.
-String *showInput(int row) {
+// If isError == 1, the text box appears in red.
+String *showInput(String *title, int row, int isError) {
   if (row < 1) {
     return NULL; // In this case there's no room for top border.
   }
@@ -137,12 +153,23 @@ String *showInput(int row) {
   if (row >= tHeight - 1) { // -1 to account the bottom border.
     return NULL;
   }
-  int MIN_WIDTH = 20;
+  int MIN_WIDTH = 30;
 
   int ulCornerRow = row - 1;
   int ulCornerCol = (tWidth - MIN_WIDTH) / 2;
   Cell ulCorner = {ulCornerRow, ulCornerCol};
-  printRectangle(ulCorner, MIN_WIDTH, 2);
+
+  if (isError) {
+    init_pair(1, COLOR_RED, -1);
+    attron(COLOR_PAIR(1));
+    printRectangle(ulCorner, MIN_WIDTH, 2);
+    attroff(COLOR_PAIR(1));
+  } else {
+    printRectangle(ulCorner, MIN_WIDTH, 2);
+  }
+
+  move(ulCornerRow, ulCornerCol);
+  printCentered(title, MIN_WIDTH);
 
   echo();
   curs_set(1);
@@ -152,28 +179,12 @@ String *showInput(int row) {
   curs_set(0);
   noecho();
   input[255] = 0;
+  if (input[0] == '\0' || input[0] == '\n') {
+    return NULL;
+  }
   String *str = newString(input);
   clearBlock(ulCorner, MIN_WIDTH + 1, 3);
   return str;
-}
-
-// Prints a string centered in the given width.
-void printCentered(String *str, int width) {
-  if (str->len > width) {
-    printw("%.*s...", width - 3, str->text);
-  } else {
-    int blankSpace = width - str->len;
-    int leftMargin = blankSpace - blankSpace / 2;
-    int rightMargin = blankSpace - leftMargin;
-    for (int i = 0; i < leftMargin; i++) {
-      printw(" ");
-    }
-    printw("%.*s", str->len, str->text);
-    for (int i = 0; i < rightMargin; i++) {
-      printw(" ");
-    }
-  }
-  refresh();
 }
 
 // To be used in showScrollableList only.
@@ -181,36 +192,36 @@ void printRow(PtrArray *row, IntArray *cellWidths) {
   String *firstCell = (String *)(row->data[0]);
   printCentered(firstCell, cellWidths->data[0]);
   for (int i = 1; i < row->len; i++) {
-    printw("█");
+    printw("│");
     printCentered((String *)(row->data[i]), cellWidths->data[i]);
   }
 }
 
 // Shows a scrollable list. Assumes that the headings and each row have the same
 // length. columnWidths contains the width of each collumn from left to right.
-void showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
-                        IntArray *columnWidths) {
+// Returns numVisibleRows for validation purposes in caller function.
+int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
+                        IntArray *columnWidths, int initialRow) {
+
   if (title == NULL || headings == NULL || rows == NULL) {
-    return;
+    return -1;
   }
   if (headings->len != columnWidths->len) {
-    return;
+    return -1;
   }
   for (int i = 0; i < rows->len; i++) {
     PtrArray *row = rows->data[i];
     if (headings->len != row->len) {
-      return;
+      return -1;
     }
   }
-
   int tWidth = 0;
   int tHeight = 0;
   getmaxyx(stdscr, tHeight, tWidth);
   // 4 rows for header + 1 for bottom border + 3 for bottom help bar = 8.
-  /*const int MAX_ROWS = tHeight - 9;*/
-  const int MAX_ROWS = 4;
+  const int MAX_ROWS = tHeight - 9;
   if (MAX_ROWS < 1) {
-    return;
+    return -1;
   }
   int width = 0; // Total width of the list.
   for (int i = 0; i < columnWidths->len; i++) {
@@ -231,58 +242,30 @@ void showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
   Cell ulCorner = {ulCornerRow, ulCornerCol};
   clear();
   printRectangle(ulCorner, width, height);
-  Cell headerLeftCell = {ulCornerRow + 2, ulCornerCol};
-  Cell headerRightCell = {ulCornerRow + 2, ulCornerCol + width};
+  Cell headerLeftCell = {ulCornerRow + 2, ulCornerCol + 1};
+  Cell headerRightCell = {ulCornerRow + 2, ulCornerCol + width - 1};
   // Line that separates headings and rows.
   printLine(headerLeftCell, headerRightCell);
 
   move(ulCornerRow + 1, ulCornerCol + 1);
   printRow(headings, columnWidths);
-  String *bottomBar1 = newString("Agregar producto: +  |  Eliminar producto: -");
-  String *bottomBar2 = newString("Subir: <flecha arriba>  |  Bajar: <flecha abajo>");
-  move(tHeight - 2, 0);
-  printCentered(bottomBar1, tWidth);
-  move(tHeight - 1, 0);
-  printCentered(bottomBar2, tWidth);
-  deleteString(bottomBar1);
-  deleteString(bottomBar2);
+  /*String *bottomBar1 = newString("Agregar producto: +     |  Eliminar producto: - ");*/
+  /*String *bottomBar2 = newString("Subir: <flecha arriba>  |  Bajar: <flecha abajo>");*/
+  /*move(tHeight - 2, 0);*/
+  /*printCentered(bottomBar1, tWidth);*/
+  /*move(tHeight - 1, 0);*/
+  /*printCentered(bottomBar2, tWidth);*/
+  /*deleteString(bottomBar1);*/
+  /*deleteString(bottomBar2);*/
 
-  int keyPressed = 0;
-  int initialRow = 0; // First row according with the scroll position.
   curs_set(0);
-  do {
-    for (int i = 0; i < numVisibleRows; i++) {
-      move(ulCornerRow + 3 + i, ulCornerCol + 1);
-      printRow(rows->data[initialRow + i], columnWidths);
-    }
-    refresh();
-    keyPressed = getch();
-    switch (keyPressed) {
-    case KEY_UP:
-      if (initialRow > 0) {
-        initialRow--;
-      }
-      break;
-    case KEY_DOWN:
-      if (initialRow + numVisibleRows < rows->len) {
-        initialRow++;
-      }
-      break;
-    case '+': {
-      String *inp = showInput(2);
-      deleteString(inp);
-      break;
-    }
-    case '-': {
-      String *inp = showInput(2);
-      deleteString(inp);
-      break;
-    }
-    }
-  } while (keyPressed != '\n');
+  for (int i = 0; i < numVisibleRows; i++) {
+    move(ulCornerRow + 3 + i, ulCornerCol + 1);
+    printRow(rows->data[initialRow + i], columnWidths);
+  }
   curs_set(1);
   refresh();
-  clear();
+  return numVisibleRows;
 }
 
 #endif // Ui!!

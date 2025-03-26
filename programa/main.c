@@ -1,14 +1,15 @@
+#include <stdio.h>
 #define _XOPEN_SOURCE 700
-#include <ncurses.h>
+#include "array.c"
+#include "filehandling.c"
+#include "inventory.c"
+#include "login.c"
+#include "string.c"
+#include "ui.c" // Ui! Ui!
 #include <locale.h>
 #include <mysql/mysql.h>
+#include <ncurses.h>
 #include <string.h>
-#include "string.c"
-#include "array.c"
-#include "ui.c"  // Ui! Ui!
-#include "login.c" 
-#include "inventory.c"
-#include "filehandling.c"
 
 MYSQL *conn;
 
@@ -19,45 +20,55 @@ void catalogQuery() {
 void makeQuotation() {
   PtrArray *headings = newPtrArray();
   ptrArrayAppend(newString("#"), headings);
-  ptrArrayAppend(newString("Encabezado1"), headings);
+  ptrArrayAppend(newString("Nombre"), headings);
+  ptrArrayAppend(newString("Descripción"), headings);
+  ptrArrayAppend(newString("Precio"), headings);
 
   IntArray *widths = newIntArray();
-  intArrayAppend(5, widths);
+  intArrayAppend(3, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(40, widths);
   intArrayAppend(20, widths);
 
   PtrArray *row1 = newPtrArray();
   ptrArrayAppend(newString("1"), row1);
-  ptrArrayAppend(newString("celda1"), row1);
-  PtrArray *row2 = newPtrArray();
-  ptrArrayAppend(newString("2"), row2);
-  ptrArrayAppend(newString("celda2"), row2);
-  PtrArray *row3 = newPtrArray();
-  ptrArrayAppend(newString("3"), row3);
-  ptrArrayAppend(newString("celda3"), row3);
-  PtrArray *row4 = newPtrArray();
-  ptrArrayAppend(newString("4"), row4);
-  ptrArrayAppend(newString("celda4"), row4);
-  PtrArray *row5 = newPtrArray();
-  ptrArrayAppend(newString("5"), row5);
-  ptrArrayAppend(newString("celda5"), row5);
-  PtrArray *row6 = newPtrArray();
-  ptrArrayAppend(newString("6"), row6);
-  ptrArrayAppend(newString("celda6"), row6);
-  PtrArray *row7 = newPtrArray();
-  ptrArrayAppend(newString("7"), row7);
-  ptrArrayAppend(newString("celda7"), row7);
+  ptrArrayAppend(newString("1234"), row1);
+  ptrArrayAppend(newString("abcde"), row1);
+  ptrArrayAppend(newString("abcde"), row1);
 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
   ptrArrayAppend(row1, rows);
-  ptrArrayAppend(row2, rows);
-  ptrArrayAppend(row3, rows);
-  ptrArrayAppend(row4, rows);
-  ptrArrayAppend(row5, rows);
-  ptrArrayAppend(row6, rows);
-  ptrArrayAppend(row7, rows);
 
   String *title = newString("titulo");
-  showScrollableList(title, headings, rows, widths);
+  int initialRow = 0;
+  int keyPressed = 0;
+  do {
+    int numVisibleRows = showScrollableList(title, headings, rows, widths, initialRow);
+    keyPressed = getch();
+    switch (keyPressed) {
+    case KEY_UP:
+      if (initialRow > 0)
+        initialRow--;
+      break;
+    case KEY_DOWN:
+      if (initialRow + numVisibleRows < rows->len)
+        initialRow++;
+      break;
+    case '+': {
+      String *title = newString("Agregar producto (ID)");
+      String *input = showInput(title, 2, 0);
+      while (input == NULL || !isNumber(input)) {
+        deleteString(input);
+        input = showInput(title, 2, 1);
+      }
+      deleteString(title);
+      deleteString(input);
+      break;
+    }
+    case '-':
+      break;
+    }
+  } while (keyPressed != '\n');
   deleteString(title);
 
   deleteStringArray(headings);
@@ -118,10 +129,11 @@ void adminOpts() {
       case 4:
         statistics();
         break;
-    }
+      }
   }
 
-  for (int i = 0; i < opts->len; i++) deleteString(opts->data[i]);
+  for (int i = 0; i < opts->len; i++)
+    deleteString(opts->data[i]);
   deletePtrArray(opts);
 }
 
@@ -152,11 +164,12 @@ void generalOpts() {
     }
   }
 
-  for (int i = 0; i < opts->len; i++) deleteString(opts->data[i]);
+  for (int i = 0; i < opts->len; i++)
+    deleteString(opts->data[i]);
   deletePtrArray(opts);
 }
 
-void initialOpts(){
+void initialOpts() {
   PtrArray *opts = newPtrArray();
   ptrArrayAppend(newString("Iniciar sesión"), opts);
   ptrArrayAppend(newString("Opciones generales"), opts);
@@ -168,7 +181,7 @@ void initialOpts(){
     switch (selectedOpt) {
       case 0:
         if (adminLogin(conn)) {
-          adminOpts();  // Mostrar opciones administrativas si el login es exitoso
+          adminOpts(); // Mostrar opciones administrativas si el login es exitoso
         } else {
           printw("Presione cualquier tecla para continuar...\n");
           getch();
@@ -183,13 +196,16 @@ void initialOpts(){
     }
   }
 
-  for (int i = 0; i < opts->len; i++) deleteString(opts->data[i]);
+  for (int i = 0; i < opts->len; i++)
+    deleteString(opts->data[i]);
   deletePtrArray(opts);
 }
 
 int main() {
   setlocale(LC_CTYPE, "");
   initscr();
+  use_default_colors();
+  start_color();
   cbreak();
   noecho();
   keypad(stdscr, TRUE);
@@ -197,9 +213,9 @@ int main() {
   // Conectar a la base de datos
   conn = mysql_init(NULL);
   if (!conn) {
-      printw("Error al inicializar la conexión a MySQL.\n");
-      endwin();
-      return 1;
+    printw("Error al inicializar la conexión a MySQL.\n");
+    endwin();
+    return 1;
   }
 
   int isRicardo = 0;
@@ -210,21 +226,22 @@ int main() {
   freeFile(hostnameFile);
 
   if (isRicardo) {
-    if (!mysql_real_connect(conn, "localhost", "root", "", "puntodeventa", 3306, NULL, 0)) {
+    if (!mysql_real_connect(conn, "localhost", "root", "", "puntodeventa", 3306,
+                            NULL, 0)) {
       printw("Error al conectar a la base de datos: %s\n", mysql_error(conn));
       getch();
       endwin();
       return 1;
     }
   } else {
-    if (!mysql_real_connect(conn, "localhost", "root", "Jdmfg2920**", "puntodeventa", 3306, NULL, 0)) {
+    if (!mysql_real_connect(conn, "localhost", "root", "Jdmfg2920**",
+                            "puntodeventa", 3306, NULL, 0)) {
       printw("Error al conectar a la base de datos: %s\n", mysql_error(conn));
       getch();
       endwin();
       return 1;
     }
   }
-
 
   initialOpts();
   // Cerrar la conexión a la base de datos
