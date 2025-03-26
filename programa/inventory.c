@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <mysql/mysql.h>
 #include <string.h>
-#include <ncurses.h>
 #include "array.c"  // Incluir el archivo array.c
 #include "string.c" // Incluir el archivo string.c
 
