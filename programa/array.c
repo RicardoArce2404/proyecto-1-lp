@@ -71,8 +71,18 @@ void ptrArrayRemove(int index, PtrArray *array) {
 }
 
 void deletePtrArray(PtrArray *array) {
+  if (array == NULL) {
+    return;
+  }
   free(array->data);
   free(array);
+}
+
+void clearPtrArray(PtrArray *array) {
+  if (array == NULL) {
+    return;
+  }
+  array->len = 0;
 }
 
 // O------------------- IntArray implementation -------------------O

@@ -14,7 +14,220 @@
 MYSQL *conn;
 
 // TO DO.
+/*
 void catalogQuery() {
+  PtrArray *headings = newPtrArray();
+  ptrArrayAppend(newString("ID"), headings);
+  ptrArrayAppend(newString("Nombre"), headings);
+  ptrArrayAppend(newString("Familia"), headings);
+  ptrArrayAppend(newString("Precio"), headings);
+  ptrArrayAppend(newString("Stock"), headings);
+
+  IntArray *widths = newIntArray();
+  intArrayAppend(6, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(8, widths);
+  intArrayAppend(5, widths);
+
+  PtrArray *row1 = newPtrArray();
+  ptrArrayAppend(newString("1"), row1);
+  ptrArrayAppend(newString("Atún Suli"), row1);
+  ptrArrayAppend(newString("Enlatados"), row1);
+  ptrArrayAppend(newString("1000"), row1);
+  ptrArrayAppend(newString("20"), row1);
+
+  PtrArray *row2 = newPtrArray();
+  ptrArrayAppend(newString("2"), row2);
+  ptrArrayAppend(newString("Arroz Suli"), row2);
+  ptrArrayAppend(newString("Granos"), row2);
+  ptrArrayAppend(newString("1000"), row2);
+  ptrArrayAppend(newString("20"), row2);
+
+  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  ptrArrayAppend(row1, rows);
+  ptrArrayAppend(row2, rows);
+  PtrArray *filteredRows = newPtrArray();
+  for (int i = 0; i < rows->len; i++) {
+    ptrArrayAppend(rows->data[i], filteredRows);
+  }
+
+  String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
+  String *helpBar2 = newString("Filtrar por familia: F  |  Regresar: <Enter>");
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+  String *title = newString("Catálogo");
+  int initialRow = 0;
+  int keyPressed = 0;
+  do {
+    int numVisibleRows = showScrollableList(title, headings, filteredRows, widths, initialRow);
+    move(tHeight - 2, 1);
+    printCentered(helpBar1, tWidth);
+    move(tHeight - 1, 1);
+    printCentered(helpBar2, tWidth);
+
+    keyPressed = getch();
+    refresh();
+    switch (keyPressed) {
+    case KEY_UP:
+      if (initialRow > 0)
+        initialRow--;
+      break;
+    case KEY_DOWN:
+      if (initialRow + numVisibleRows < rows->len)
+        initialRow++;
+      break;
+    case 'f': {
+      String *title = newString("Filtrar por familia (Nombre)");
+      String *input = showInput(title, 2, 0);
+      while (input == NULL) {
+        deleteString(input);
+        input = showInput(title, 2, 1);
+      }
+      deleteString(title);
+
+      clearPtrArray(filteredRows);
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        String *family = row->data[2];
+        if (family->len == input->len && memcmp(family->text, input->text, input->len) == 0) {
+          ptrArrayAppend(row, filteredRows);
+        }
+      }
+      deleteString(input);
+      break;
+    }
+    }
+  } while (keyPressed != '\n');
+  deleteString(title);
+  deleteString(helpBar1);
+  deleteString(helpBar2);
+
+  title = newString("Ingrese el ID a seleccionar");
+  String *input = showInput(title, 2, 0);
+  while (input == NULL && !isNumber(input)) {
+    deleteString(input);
+    input = showInput(title, 2, 1);
+  }
+  deleteString(title);
+  int id = toInt(input);
+  deleteString(input);
+  deleteStringArray(headings);
+  deleteIntArray(widths);
+  for (int i = 0; i < rows->len; i++) {
+    deleteStringArray(rows->data[i]);
+  }
+  deletePtrArray(rows);
+  deletePtrArray(filteredRows);
+}
+*/
+int showCatalog() {
+  PtrArray *headings = newPtrArray();
+  ptrArrayAppend(newString("ID"), headings);
+  ptrArrayAppend(newString("Nombre"), headings);
+  ptrArrayAppend(newString("Familia"), headings);
+  ptrArrayAppend(newString("Precio"), headings);
+  ptrArrayAppend(newString("Stock"), headings);
+
+  IntArray *widths = newIntArray();
+  intArrayAppend(6, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(8, widths);
+  intArrayAppend(5, widths);
+
+  PtrArray *row1 = newPtrArray();
+  ptrArrayAppend(newString("1"), row1);
+  ptrArrayAppend(newString("Atún Suli"), row1);
+  ptrArrayAppend(newString("Enlatados"), row1);
+  ptrArrayAppend(newString("1000"), row1);
+  ptrArrayAppend(newString("20"), row1);
+
+  PtrArray *row2 = newPtrArray();
+  ptrArrayAppend(newString("2"), row2);
+  ptrArrayAppend(newString("Arroz Suli"), row2);
+  ptrArrayAppend(newString("Granos"), row2);
+  ptrArrayAppend(newString("1000"), row2);
+  ptrArrayAppend(newString("20"), row2);
+
+  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  ptrArrayAppend(row1, rows);
+  ptrArrayAppend(row2, rows);
+  PtrArray *filteredRows = newPtrArray();
+  for (int i = 0; i < rows->len; i++) {
+    ptrArrayAppend(rows->data[i], filteredRows);
+  }
+
+  String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
+  String *helpBar2 = newString("Filtrar por familia: F  |  Elegir por ID: <Enter>");
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+  String *title = newString("Catálogo");
+  int initialRow = 0;
+  int keyPressed = 0;
+  do {
+    int numVisibleRows = showScrollableList(title, headings, filteredRows, widths, initialRow);
+    move(tHeight - 2, 1);
+    printCentered(helpBar1, tWidth);
+    move(tHeight - 1, 1);
+    printCentered(helpBar2, tWidth);
+
+    keyPressed = getch();
+    refresh();
+    switch (keyPressed) {
+    case KEY_UP:
+      if (initialRow > 0)
+        initialRow--;
+      break;
+    case KEY_DOWN:
+      if (initialRow + numVisibleRows < rows->len)
+        initialRow++;
+      break;
+    case 'f': {
+      String *title = newString("Filtrar por familia (Nombre)");
+      String *input = showInput(title, 2, 0);
+      while (input == NULL) {
+        deleteString(input);
+        input = showInput(title, 2, 1);
+      }
+      deleteString(title);
+
+      clearPtrArray(filteredRows);
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        String *family = row->data[2];
+        if (family->len == input->len && memcmp(family->text, input->text, input->len) == 0) {
+          ptrArrayAppend(row, filteredRows);
+        }
+      }
+      deleteString(input);
+      break;
+    }
+    }
+  } while (keyPressed != '\n');
+  deleteString(title);
+  deleteString(helpBar1);
+  deleteString(helpBar2);
+
+  title = newString("Ingrese el ID a seleccionar");
+  String *input = showInput(title, 2, 0);
+  while (input == NULL && !isNumber(input)) {
+    deleteString(input);
+    input = showInput(title, 2, 1);
+  }
+  deleteString(title);
+  int id = toInt(input);
+  deleteString(input);
+  deleteStringArray(headings);
+  deleteIntArray(widths);
+  for (int i = 0; i < rows->len; i++) {
+    deleteStringArray(rows->data[i]);
+  }
+  deletePtrArray(rows);
+  deletePtrArray(filteredRows);
+  return id;
 }
 
 void makeQuotation() {
@@ -39,11 +252,22 @@ void makeQuotation() {
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
   ptrArrayAppend(row1, rows);
 
-  String *title = newString("titulo");
+  String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
+  String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -");
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+
+  String *title = newString("Crear cotización");
   int initialRow = 0;
   int keyPressed = 0;
   do {
     int numVisibleRows = showScrollableList(title, headings, rows, widths, initialRow);
+    move(tHeight - 2, 1);
+    printCentered(helpBar1, tWidth);
+    move(tHeight - 1, 1);
+    printCentered(helpBar2, tWidth);
+
     keyPressed = getch();
     switch (keyPressed) {
     case KEY_UP:
@@ -55,15 +279,8 @@ void makeQuotation() {
         initialRow++;
       break;
     case '+': {
-      String *title = newString("Agregar producto (ID)");
-      String *input = showInput(title, 2, 0);
-      while (input == NULL || !isNumber(input)) {
-        deleteString(input);
-        input = showInput(title, 2, 1);
-      }
-      deleteString(title);
-      /*int id = toInt(input);*/
-      deleteString(input);
+      int id = showCatalog();
+      id++;
       // TO DO: Query DB to get product info using product's ID.
       PtrArray *newRow = newPtrArray();
       ptrArrayAppend(newString("1"), newRow);

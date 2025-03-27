@@ -87,7 +87,7 @@ int showMenu(PtrArray *options) {
   int ulCornerRow = (tHeight - height) / 2;
   int ulCornerCol = (tWidth - width) / 2;
   Cell ulCorner = {ulCornerRow, ulCornerCol};
-  clear();     // Clears the screen.
+  clear(); // Clears the screen.
   printRectangle(ulCorner, width, height);
 
   int selectedOption = 0;
@@ -201,27 +201,30 @@ void printRow(PtrArray *row, IntArray *cellWidths) {
 // length. columnWidths contains the width of each collumn from left to right.
 // Returns numVisibleRows for validation purposes in caller function.
 int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
-                        IntArray *columnWidths, int initialRow) {
-
+                       IntArray *columnWidths, int initialRow) {
   if (title == NULL || headings == NULL || rows == NULL) {
     return -1;
   }
   if (headings->len != columnWidths->len) {
-    return -1;
+    return -2;
   }
   for (int i = 0; i < rows->len; i++) {
     PtrArray *row = rows->data[i];
     if (headings->len != row->len) {
-      return -1;
+      return -3;
     }
   }
   int tWidth = 0;
   int tHeight = 0;
   getmaxyx(stdscr, tHeight, tWidth);
-  // 4 rows for header + 1 for bottom border + 3 for bottom help bar = 8.
-  const int MAX_ROWS = tHeight - 9;
+  // - 4 rows for header
+  // - 1 row for bottom border
+  // - 3 rows for input textbox
+  // - 4 rows for bottom help bar
+  // 4 + 1 + 3 + 4 = 12 rows reserved. The rest is for product rows.
+  const int MAX_ROWS = tHeight - 12;
   if (MAX_ROWS < 1) {
-    return -1;
+    return -4;
   }
   int width = 0; // Total width of the list.
   for (int i = 0; i < columnWidths->len; i++) {
@@ -249,8 +252,10 @@ int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
 
   move(ulCornerRow + 1, ulCornerCol + 1);
   printRow(headings, columnWidths);
-  /*String *bottomBar1 = newString("Agregar producto: +     |  Eliminar producto: - ");*/
-  /*String *bottomBar2 = newString("Subir: <flecha arriba>  |  Bajar: <flecha abajo>");*/
+  /*String *bottomBar1 = newString("Agregar producto: +     |  Eliminar
+   * producto: - ");*/
+  /*String *bottomBar2 = newString("Subir: <flecha arriba>  |  Bajar: <flecha
+   * abajo>");*/
   /*move(tHeight - 2, 0);*/
   /*printCentered(bottomBar1, tWidth);*/
   /*move(tHeight - 1, 0);*/
