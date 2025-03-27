@@ -30,6 +30,29 @@ void catalogQuery() {
 
   PtrArray *families = newPtrArray();  // Stores families.
 
+  if (mysql_query(conn, "SELECT * FROM Familia")) {
+    printw("Error al consultar familias: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
+
+  MYSQL_RES *familyResult = mysql_store_result(conn);
+    if (!familyResult) {
+        printw("Error al obtener resultados de familias\n");
+        refresh();
+        getch();
+        return;
+    }
+
+  MYSQL_ROW familyRow;
+    while ((familyRow = mysql_fetch_row(familyResult))) {
+        int *idFam = familyRow[0];
+        String *familyStr = newString(familyRow[1]); // Descripción de familia
+        ptrArrayAppend(familyStr, families); //----------------------------------------------------------------Aqui quede, falta el struct de familia y agregar productos
+    }
+    mysql_free_result(familyResult);
+
   PtrArray *row1 = newPtrArray();
   ptrArrayAppend(newString("1"), row1);
   ptrArrayAppend(newString("Atún Suli"), row1);

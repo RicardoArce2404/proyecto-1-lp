@@ -6,32 +6,6 @@
 - Facturas
 */
 
-CREATE VIEW VistaProductosPorFamilia AS
-SELECT 
-    p.id_producto,
-    p.descripcion AS producto,
-    p.stock,
-    p.precio,
-    f.descripcion AS familia
-FROM 
-    Producto p
-JOIN 
-    Familia f ON p.id_familia = f.id_familia
-ORDER BY 
-    f.descripcion, p.descripcion;
-    
-CREATE VIEW VistaProductos AS
-SELECT 
-    p.id_producto,
-    p.descripcion AS producto,
-    p.stock,
-    p.costo,
-    p.precio,
-    f.descripcion AS familia
-FROM 
-    Producto p
-JOIN 
-    Familia f ON p.id_familia = f.id_familia;
     
 CREATE VIEW VistaCotizaciones AS
 SELECT 
