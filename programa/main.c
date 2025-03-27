@@ -13,8 +13,6 @@
 
 MYSQL *conn;
 
-// TO DO.
-/*
 void catalogQuery() {
   PtrArray *headings = newPtrArray();
   ptrArrayAppend(newString("ID"), headings);
@@ -28,7 +26,9 @@ void catalogQuery() {
   intArrayAppend(20, widths);
   intArrayAppend(20, widths);
   intArrayAppend(8, widths);
-  intArrayAppend(5, widths);
+  intArrayAppend(6, widths);
+
+  PtrArray *families = newPtrArray();  // Stores families.
 
   PtrArray *row1 = newPtrArray();
   ptrArrayAppend(newString("1"), row1);
@@ -44,7 +44,7 @@ void catalogQuery() {
   ptrArrayAppend(newString("1000"), row2);
   ptrArrayAppend(newString("20"), row2);
 
-  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  PtrArray *rows = newPtrArray(); // Stores products.
   ptrArrayAppend(row1, rows);
   ptrArrayAppend(row2, rows);
   PtrArray *filteredRows = newPtrArray();
@@ -79,14 +79,15 @@ void catalogQuery() {
         initialRow++;
       break;
     case 'f': {
-      String *title = newString("Filtrar por familia (Nombre)");
+      String *title = newString("Filtrar por familia (ID)");
       String *input = showInput(title, 2, 0);
-      while (input == NULL) {
+      while (input == NULL && !isNumber(input)) {
         deleteString(input);
         input = showInput(title, 2, 1);
       }
       deleteString(title);
 
+      int id = toInt(input);
       clearPtrArray(filteredRows);
       for (int i = 0; i < rows->len; i++) {
         PtrArray *row = rows->data[i];
@@ -104,15 +105,6 @@ void catalogQuery() {
   deleteString(helpBar1);
   deleteString(helpBar2);
 
-  title = newString("Ingrese el ID a seleccionar");
-  String *input = showInput(title, 2, 0);
-  while (input == NULL && !isNumber(input)) {
-    deleteString(input);
-    input = showInput(title, 2, 1);
-  }
-  deleteString(title);
-  int id = toInt(input);
-  deleteString(input);
   deleteStringArray(headings);
   deleteIntArray(widths);
   for (int i = 0; i < rows->len; i++) {
@@ -121,7 +113,7 @@ void catalogQuery() {
   deletePtrArray(rows);
   deletePtrArray(filteredRows);
 }
-*/
+
 int showCatalog() {
   PtrArray *headings = newPtrArray();
   ptrArrayAppend(newString("ID"), headings);
@@ -253,7 +245,7 @@ void makeQuotation() {
   ptrArrayAppend(row1, rows);
 
   String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
-  String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -");
+  String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -  |  Guardar: <Enter>");
   int tWidth = 0;
   int tHeight = 0;
   getmaxyx(stdscr, tHeight, tWidth);
@@ -312,6 +304,8 @@ void makeQuotation() {
     }
   } while (keyPressed != '\n');
   deleteString(title);
+  deleteString(helpBar1);
+  deleteString(helpBar2);
 
   deleteStringArray(headings);
   deleteIntArray(widths);
@@ -462,7 +456,7 @@ int main() {
 
   int isRicardo = 0;
   File *hostnameFile = readFile("/etc/hostname");
-  if (hostnameFile->len==8 && memcmp(hostnameFile->content, "Ideapad3", hostnameFile->len - 1) == 0) {
+  if (hostnameFile->len==9 && memcmp(hostnameFile->content, "Ideapad3", hostnameFile->len - 1) == 0) {
     isRicardo = 1;
   } 
   freeFile(hostnameFile);

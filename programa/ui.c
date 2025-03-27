@@ -252,17 +252,6 @@ int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
 
   move(ulCornerRow + 1, ulCornerCol + 1);
   printRow(headings, columnWidths);
-  /*String *bottomBar1 = newString("Agregar producto: +     |  Eliminar
-   * producto: - ");*/
-  /*String *bottomBar2 = newString("Subir: <flecha arriba>  |  Bajar: <flecha
-   * abajo>");*/
-  /*move(tHeight - 2, 0);*/
-  /*printCentered(bottomBar1, tWidth);*/
-  /*move(tHeight - 1, 0);*/
-  /*printCentered(bottomBar2, tWidth);*/
-  /*deleteString(bottomBar1);*/
-  /*deleteString(bottomBar2);*/
-
   curs_set(0);
   for (int i = 0; i < numVisibleRows; i++) {
     move(ulCornerRow + 3 + i, ulCornerCol + 1);
