@@ -66,6 +66,8 @@ int validateAdminLogin(MYSQL *conn, const char *username, const char *password) 
 
 // Función para solicitar credenciales y validarlas
 int adminLogin(MYSQL *conn) {
+    clear();
+    move(1,1);
     char username[100];
     char password[100];
 

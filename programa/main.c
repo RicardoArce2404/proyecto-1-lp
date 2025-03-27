@@ -360,7 +360,7 @@ void adminOpts() {
         adminOpts();
         break;
       case 1:
-        registerProduct(conn);
+        //registerProduct(conn);
         break;
       case 2:
         LoadInventory();
@@ -462,9 +462,9 @@ int main() {
 
   int isRicardo = 0;
   File *hostnameFile = readFile("/etc/hostname");
-  if (memcmp(hostnameFile->content, "Ideapad3", hostnameFile->len - 1) == 0) {
+  if (hostnameFile->len==8 && memcmp(hostnameFile->content, "Ideapad3", hostnameFile->len - 1) == 0) {
     isRicardo = 1;
-  }
+  } 
   freeFile(hostnameFile);
 
   if (isRicardo) {
