@@ -354,7 +354,7 @@ void adminOpts() {
         adminOpts();
         break;
       case 1:
-        //registerProduct(conn);
+        registerProduct(conn);
         break;
       case 2:
         LoadInventory();
