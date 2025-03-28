@@ -34,22 +34,23 @@ String *newString(char *originalString) {
 
 // Creates a String struct using n characters from string originalString.
 String *newStringN(char *originalString, int n) {
-  if (n == 0) {
-    return NULL;
-  }
-  char *text = (char *)malloc(sizeof(char) * n);
-  if (text == NULL) {
-    return NULL;
-  }
-  String *str = (String *)malloc(sizeof(String));
-  if (str == NULL) {
-    free(text);
-    return NULL;
-  }
-  memcpy(text, originalString, n);
-  str->text = text;
-  str->len = n;
-  return str;
+  if (!originalString || n <= 0) return NULL;
+    
+    char *text = (char *)malloc(n + 1); // +1 para el null terminator
+    if (!text) return NULL;
+    
+    memcpy(text, originalString, n);
+    text[n] = '\0'; // Asegurar null termination
+    
+    String *str = (String *)malloc(sizeof(String));
+    if (!str) {
+        free(text);
+        return NULL;
+    }
+    
+    str->text = text;
+    str->len = n;
+    return str;
 }
 
 void deleteString(String *ptr) {

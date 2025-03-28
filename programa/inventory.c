@@ -278,8 +278,7 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
 
         if (resultado != 0) {  // 0 es éxito según tu procedimiento
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            printw("Esta es la longitud %i y esta es la cadena %.*s", id->len, id->len , id->text);
-            getch();
+
             error->id = newStringN(id->text,id->len);
             error->description = newStringN(description->text, description->len);
             error->error_code = resultado;
