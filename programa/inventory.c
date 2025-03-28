@@ -151,10 +151,12 @@ void showProcessingErrors(PtrArray *errors) {
 void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     if (!conn || !filePath || !families) return;
     
-    File *file = readFileStr(filePath);
-    if (!file || file->len == 0) {
-        printw("Error: No se pudo leer el archivo o está vacío.\n");
-        if (file) freeFile(file);
+    PtrArray *csvLines = readCsv(filePath);
+    if (!csvLines || csvLines->len == 0) {
+        String *msg = newString("Error: Archivo vacío o formato inválido");
+        showInput(msg, 10, 1);
+        deleteString(msg);
+        if (csvLines) deletePtrArray(csvLines);
         return;
     }
 
@@ -162,44 +164,22 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     PtrArray *errorFamilies = newPtrArray();
     int totalRecords = 0, failedRecords = 0;
 
-    char *content = file->content;
-    char *line = content;
-    char *end = content + file->len;
-
-    while (line < end) {
-        char *nextLine = strchr(line, '\n');
-        if (nextLine) *nextLine = '\0';
-
-        char *idStr = line;
-        char *desc = strchr(line, ',');
-        if (!desc) {
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = (PtrArray *)csvLines->data[i];
+        
+        // Validar que la línea tenga exactamente 2 campos (ID y descripción)
+        if (line->len != 2) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
             error->id = newString("N/A");
-            error->description = newString("Formato inválido: Falta separador de campos");
+            error->description = newString("Formato inválido: Se esperaban 2 campos");
             error->error_code = -5;
             ptrArrayAppend(error, errorFamilies);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
-        *desc = '\0';
-        desc++;
 
-        
-        String *id = newString(idStr);
-        String *description = newString(desc);
-        if (!id || !description) {
-            ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = newString(idStr ? idStr : "N/A");
-            error->description = newString("Error creando strings");
-            error->error_code = -6;
-            ptrArrayAppend(error, errorFamilies);
-            if (id) deleteString(id);
-            if (description) deleteString(description);
-            line = nextLine ? nextLine + 1 : end;
-            failedRecords++;
-            continue;
-        }
+        String *id = (String *)(line->data[0]);
+        String *description = (String *)(line->data[1]);
 
         // Llamar al procedimiento almacenado
         MYSQL_STMT *stmt;
@@ -209,25 +189,23 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
         stmt = mysql_stmt_init(conn);
         if (!stmt) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -1;
             ptrArrayAppend(error, errorFamilies);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
         const char *query = "CALL RegistrarFamilia(?, ?, ?)";
         if (mysql_stmt_prepare(stmt, query, strlen(query))) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id =  newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -2;
             ptrArrayAppend(error, errorFamilies);
             mysql_stmt_close(stmt);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
@@ -248,29 +226,27 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
 
         if (mysql_stmt_bind_param(stmt, params)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -3;
             ptrArrayAppend(error, errorFamilies);
             mysql_stmt_close(stmt);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
         if (mysql_stmt_execute(stmt)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -4;
             ptrArrayAppend(error, errorFamilies);
             mysql_stmt_close(stmt);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
-        // Paso crítico: Vincular y recuperar el parámetro de salida
+        // Vincular y recuperar el parámetro de salida
         MYSQL_BIND out_param;
         memset(&out_param, 0, sizeof(out_param));
         out_param.buffer_type = MYSQL_TYPE_LONG;
@@ -280,40 +256,40 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
 
         if (mysql_stmt_bind_result(stmt, &out_param)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -7;
             ptrArrayAppend(error, errorFamilies);
             mysql_stmt_close(stmt);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
         if (mysql_stmt_fetch(stmt)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = -8;
             ptrArrayAppend(error, errorFamilies);
             mysql_stmt_close(stmt);
             failedRecords++;
-            line = nextLine ? nextLine + 1 : end;
             continue;
         }
 
-        if (resultado != 2) {  // 2 es éxito
+        if (resultado != 0) {  // 0 es éxito según tu procedimiento
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = id;
-            error->description = description;
+            printw("Esta es la longitud %i y esta es la cadena %.*s", id->len, id->len , id->text);
+            getch();
+            error->id = newStringN(id->text,id->len);
+            error->description = newStringN(description->text, description->len);
             error->error_code = resultado;
             ptrArrayAppend(error, errorFamilies);
             failedRecords++;
         } else {
             Family *family = (Family *)malloc(sizeof(Family));
             if (family) {
-                family->id = id;
-                family->description = description;
+                family->id = newStringN(id->text,id->len);
+                family->description = newStringN(description->text, description->len);
                 ptrArrayAppend(family, families);
                 ptrArrayAppend(family, successfulFamilies);
             }
@@ -321,11 +297,8 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
 
         mysql_stmt_close(stmt);
         totalRecords++;
-        line = nextLine ? nextLine + 1 : end;
     }
 
-
-    freeFile(file);
 
     // Mostrar resultados exitosos en tabla bien formateada
     if (successfulFamilies->len > 0) {
@@ -404,84 +377,66 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     }
     deletePtrArray(errorFamilies);
     deletePtrArray(successfulFamilies);
+
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = csvLines->data[i];
+        deleteStringArray(line);
+    }
+    deletePtrArray(csvLines);
 }
 
 void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
     if (!conn || !filePath || !products) return;
 
-    File *file = readFileStr(filePath);
-    if (!file || file->len == 0) {
-        printw("Error: No se pudo leer el archivo o está vacío.\n");
-        if (file) freeFile(file);
+    PtrArray *csvLines = readCsv(filePath);
+    if (!csvLines || csvLines->len == 0) {
+        String *msg = newString("Error: Archivo vacío o formato inválido");
+        showInput(msg, 10, 1);
+        deleteString(msg);
+        if (csvLines) deletePtrArray(csvLines);
         return;
     }
 
-    int totalRecords = 0, failedRecords = 0;
-    char *content = file->content;
-    char *line = content;
-    char *end = content + file->len;
-
     PtrArray *errors = newPtrArray();
+    int totalRecords = 0, failedRecords = 0;
 
-    while (line < end) {
-        char *nextLine = strchr(line, '\n');
-        if (nextLine) *nextLine = '\0';
-
-        char *fields[6];
-        int fieldCount = 0;
-        char *token = strtok(line, ",");
-        while (token != NULL && fieldCount < 6) {
-            fields[fieldCount++] = token;
-            token = strtok(NULL, ",");
-        }
-
-        if (fieldCount != 6) {
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = (PtrArray *)csvLines->data[i];
+        
+        // Validar que la línea tenga exactamente 6 campos
+        if (line->len != 6) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = newString(fields[0] ? fields[0] : "N/A");
-            error->description = newString("Formato inválido (campos faltantes)");
+            error->id = newString("N/A");
+            error->description = newString("Formato inválido: Se esperaban 6 campos");
             error->error_code = -5;
             ptrArrayAppend(error, errors);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
 
-        String *id = newString(fields[0]);
-        String *description = newString(fields[1]);
-        String *family_desc = newString(fields[2]);
-        
-        if (!id || !description || !family_desc) {
-            ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = newString(fields[0] ? fields[0] : "N/A");
-            error->description = newString("Error creando strings");
-            error->error_code = -6;
-            ptrArrayAppend(error, errors);
-            if (id) deleteString(id);
-            if (description) deleteString(description);
-            if (family_desc) deleteString(family_desc);
-            line = nextLine ? nextLine + 1 : end;
-            failedRecords++;
-            continue;
-        }
+        String *id = (String *)line->data[0];
+        String *description = (String *)line->data[1];
+        String *family_desc = (String *)line->data[2];
+        String *costStr = (String *)line->data[3];
+        String *priceStr = (String *)line->data[4];
+        String *stockStr = (String *)line->data[5];
 
         float cost, price;
         int stock;
         
-        if (sscanf(fields[3], "%f", &cost) != 1 || 
-            sscanf(fields[4], "%f", &price) != 1 || 
-            sscanf(fields[5], "%d", &stock) != 1) {
+        if (!isNumber(costStr) || !isNumber(priceStr) || !isNumber(stockStr)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
             error->id = newString(id->text);
             error->description = newString("Valores numéricos inválidos");
             error->error_code = -7;
             ptrArrayAppend(error, errors);
-            deleteString(id);
-            deleteString(description);
-            deleteString(family_desc);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
+
+        cost = atof(costStr->text);
+        price = atof(priceStr->text);
+        stock = atoi(stockStr->text);
 
         Product *product = (Product *)malloc(sizeof(Product));
         if (!product) {
@@ -490,17 +445,13 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             error->description = newString("Error asignando memoria");
             error->error_code = -9;
             ptrArrayAppend(error, errors);
-            deleteString(id);
-            deleteString(description);
-            deleteString(family_desc);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
 
-        product->id = id;
-        product->description = description;
-        product->family_desc = family_desc;
+        product->id = newString(id->text);
+        product->description = newString(description->text);
+        product->family_desc = newString(family_desc->text);
         product->cost = cost;
         product->price = price;
         product->stock = stock;
@@ -517,7 +468,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             error->error_code = -10;
             ptrArrayAppend(error, errors);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -531,7 +481,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             ptrArrayAppend(error, errors);
             mysql_stmt_close(stmt);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -573,7 +522,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             ptrArrayAppend(error, errors);
             mysql_stmt_close(stmt);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -586,7 +534,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             ptrArrayAppend(error, errors);
             mysql_stmt_close(stmt);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -607,7 +554,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             ptrArrayAppend(error, errors);
             mysql_stmt_close(stmt);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -620,7 +566,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             ptrArrayAppend(error, errors);
             mysql_stmt_close(stmt);
             freeProduct(product);
-            line = nextLine ? nextLine + 1 : end;
             failedRecords++;
             continue;
         }
@@ -644,10 +589,7 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
 
         mysql_stmt_close(stmt);
         totalRecords++;
-        line = nextLine ? nextLine + 1 : end;
     }
-
-    freeFile(file);
     
     char summaryText[150];
     if (failedRecords > 0) {
@@ -672,6 +614,12 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
         freeProcessingError(errors->data[i]);
     }
     deletePtrArray(errors);
+
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = csvLines->data[i];
+        deleteStringArray(line);
+    }
+    deletePtrArray(csvLines);
 }
 
 void registerProductFamily(MYSQL *conn) {
