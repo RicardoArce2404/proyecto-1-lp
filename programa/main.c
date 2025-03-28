@@ -359,7 +359,7 @@ void editQuotation() {
     deleteString(msg);
     return;
   } else if (0) { // If quotation exists but is already invoiced.
-    String *title = newString("Cotización no editable.");
+    String *title = newString("Cotización ya facturada.");
     String *msg = newString("Error: La cotización asociada al número introducido ya fue facturada.");
     showAlert(title, msg, tHeight / 2, 1);
     deleteString(title);
@@ -454,8 +454,36 @@ void editQuotation() {
   deletePtrArray(rows);
 }
 
-// TO DO.
 void makeInvoice() {
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+  clear();
+  String *title = newString("Ingrese el número de cotización");
+  String *input = showInput(title, tHeight / 2, 0);
+  while (input == NULL || !isNumber(input)) {
+    deleteString(input);
+    input = showInput(title, tHeight / 2, 1);
+  }
+  deleteString(title);
+  /*int quotationId = toInt(input);*/
+
+  if (0) { // If quotation doesn't exist.
+    String *title = newString("Cotización no encontrada.");
+    String *msg = newString("Error: No existe ninguna cotización con el número introducido.");
+    showAlert(title, msg, tHeight / 2, 1);
+    deleteString(title);
+    deleteString(msg);
+    return;
+  } else if (0) { // If quotation exists but is already invoiced.
+    String *title = newString("Cotización ya facturada.");
+    String *msg = newString("Error: La cotización asociada al número introducido ya fue facturada.");
+    showAlert(title, msg, tHeight / 2, 1);
+    deleteString(title);
+    deleteString(msg);
+    return;
+  }
+
 }
 
 // TO DO.
