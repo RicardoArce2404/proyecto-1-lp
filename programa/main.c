@@ -104,13 +104,12 @@ void catalogQuery() {
     case 'f': {
       String *title = newString("Filtrar por familia (ID)");
       String *input = showInput(title, 2, 0);
-      while (input == NULL && !isNumber(input)) {
+      while (input == NULL) {
         deleteString(input);
         input = showInput(title, 2, 1);
       }
       deleteString(title);
 
-      /*int id = toInt(input);*/
       clearPtrArray(filteredRows);
       for (int i = 0; i < rows->len; i++) {
         PtrArray *row = rows->data[i];

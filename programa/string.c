@@ -8,13 +8,11 @@ typedef struct String {
   int len;
 } String;
 
+// Creates a String struct using the null-terminated string originalString.
 String *newString(char *originalString) {
   int len = 0;
   while (originalString[len] != '\0') {
     len++;
-  }
-  if (len == 0) {
-    return NULL;
   }
   if (len == 0) {
     return NULL;
@@ -31,6 +29,26 @@ String *newString(char *originalString) {
   memcpy(text, originalString, len);
   str->text = text;
   str->len = len;
+  return str;
+}
+
+// Creates a String struct using n characters from string originalString.
+String *newStringN(char *originalString, int n) {
+  if (n == 0) {
+    return NULL;
+  }
+  char *text = (char *)malloc(sizeof(char) * n);
+  if (text == NULL) {
+    return NULL;
+  }
+  String *str = (String *)malloc(sizeof(String));
+  if (str == NULL) {
+    free(text);
+    return NULL;
+  }
+  memcpy(text, originalString, n);
+  str->text = text;
+  str->len = n;
   return str;
 }
 
