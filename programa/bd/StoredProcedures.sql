@@ -5,7 +5,7 @@ DELIMITER //
 CREATE PROCEDURE RegistrarFamilia(
     IN p_id_familia VARCHAR(10),
     IN p_descripcion VARCHAR(100),
-    OUT p_resultado INT) -- 1: ID ya existe, 2: Éxito
+    OUT p_resultado INT) -- 1: ID ya existe, 6: Éxito
 BEGIN
     DECLARE v_existe INT DEFAULT 0;
     
@@ -16,7 +16,7 @@ BEGIN
     ELSE
         INSERT INTO Familia (id_familia, descripcion) 
         VALUES (p_id_familia, p_descripcion);
-        SET p_resultado = 2;
+        SET p_resultado = 6;
     END IF;
 END //
 
@@ -28,8 +28,8 @@ CREATE PROCEDURE RegistrarProducto(
     IN p_id_producto VARCHAR(10),
     IN p_descripcion VARCHAR(100),
     IN p_stock INT,
-    IN p_costo DECIMAL(10,2),
-    IN p_precio DECIMAL(10,2),
+    IN p_costo FLOAT,
+    IN p_precio FLOAT,
     IN p_familia_desc VARCHAR(100),  -- Cambiado a descripción de familia
     OUT p_resultado INT) -- 1: ID existe, 2: Familia no existe, 3: Costo/precio inválido, 4: Precio < Costo, 5: Éxito
 BEGIN

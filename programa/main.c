@@ -455,9 +455,9 @@ void editQuotation() {
 }
 
 void makeInvoice() {
-  int tWidth = 0;
+  //int tWidth = 0;
   int tHeight = 0;
-  getmaxyx(stdscr, tHeight, tWidth);
+  //getmaxyx(stdscr, tHeight, tWidth);
   clear();
   String *title = newString("Ingrese el número de cotización");
   String *input = showInput(title, tHeight / 2, 0);
