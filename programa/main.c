@@ -30,28 +30,28 @@ void catalogQuery() {
 
   /*PtrArray *families = newPtrArray();  // Stores families.*/
 
-  if (mysql_query(conn, "SELECT * FROM Familia")) {
-    printw("Error al consultar familias: %s\n", mysql_error(conn));
-    refresh();
-    getch();
-    return;
-  }
-
-  MYSQL_RES *familyResult = mysql_store_result(conn);
-    if (!familyResult) {
-        printw("Error al obtener resultados de familias\n");
-        refresh();
-        getch();
-        return;
-    }
-
-  MYSQL_ROW familyRow;
-    while ((familyRow = mysql_fetch_row(familyResult))) {
-        int *idFam = familyRow[0];
-        String *familyStr = newString(familyRow[1]); // Descripción de familia
-        ptrArrayAppend(familyStr, families); //----------------------------------------------------------------Aqui quede, falta el struct de familia y agregar productos
-    }
-    mysql_free_result(familyResult);
+  /*if (mysql_query(conn, "SELECT * FROM Familia")) {*/
+  /*  printw("Error al consultar familias: %s\n", mysql_error(conn));*/
+  /*  refresh();*/
+  /*  getch();*/
+  /*  return;*/
+  /*}*/
+  /**/
+  /*MYSQL_RES *familyResult = mysql_store_result(conn);*/
+  /*  if (!familyResult) {*/
+  /*      printw("Error al obtener resultados de familias\n");*/
+  /*      refresh();*/
+  /*      getch();*/
+  /*      return;*/
+  /*  }*/
+  /**/
+  /*MYSQL_ROW familyRow;*/
+  /*  while ((familyRow = mysql_fetch_row(familyResult))) {*/
+  /*      int *idFam = familyRow[0];*/
+  /*      String *familyStr = newString(familyRow[1]); // Descripción de familia*/
+  /*      ptrArrayAppend(familyStr, families); //----------------------------------------------------------------Aqui quede, falta el struct de familia y agregar productos*/
+  /*  }*/
+  /*  mysql_free_result(familyResult);*/
 
   PtrArray *row1 = newPtrArray();
   ptrArrayAppend(newString("1"), row1);
@@ -338,8 +338,121 @@ void makeQuotation() {
   deletePtrArray(rows);
 }
 
-// TO DO.
 void editQuotation() {
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+  clear();
+  String *title = newString("Ingrese el número de cotización");
+  String *input = showInput(title, tHeight / 2, 0);
+  while (input == NULL || !isNumber(input)) {
+    deleteString(input);
+    input = showInput(title, tHeight / 2, 1);
+  }
+  deleteString(title);
+  /*int quotationId = toInt(input);*/
+
+  if (0) { // If quotation doesn't exist.
+    String *title = newString("Cotización no encontrada.");
+    String *msg = newString("Error: No existe ninguna cotización con el número introducido.");
+    showAlert(title, msg, tHeight / 2, 1);
+    deleteString(title);
+    deleteString(msg);
+    return;
+  } else if (0) { // If quotation exists but is already invoiced.
+    String *title = newString("Cotización no editable.");
+    String *msg = newString("Error: La cotización asociada al número introducido ya fue facturada.");
+    showAlert(title, msg, tHeight / 2, 1);
+    deleteString(title);
+    deleteString(msg);
+    return;
+  }
+
+  PtrArray *headings = newPtrArray();
+  ptrArrayAppend(newString("#"), headings);
+  ptrArrayAppend(newString("Nombre"), headings);
+  ptrArrayAppend(newString("Descripción"), headings);
+  ptrArrayAppend(newString("Precio"), headings);
+
+  IntArray *widths = newIntArray();
+  intArrayAppend(3, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(40, widths);
+  intArrayAppend(20, widths);
+
+  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
+  String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -  |  Guardar: <Enter>");
+
+  title = newString("Crear cotización");
+  int initialRow = 0;
+  int keyPressed = 0;
+  do {
+    int numVisibleRows = showScrollableList(title, headings, rows, widths, initialRow);
+    move(tHeight - 2, 1);
+    printCentered(helpBar1, tWidth);
+    move(tHeight - 1, 1);
+    printCentered(helpBar2, tWidth);
+
+    keyPressed = getch();
+    switch (keyPressed) {
+    case KEY_UP:
+      if (initialRow > 0)
+        initialRow--;
+      break;
+    case KEY_DOWN:
+      if (initialRow + numVisibleRows < rows->len)
+        initialRow++;
+      break;
+    case '+': {
+      int id = showCatalog();
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        if (toInt(row->data[0]) == id) {
+          // Logic to add new amount to existing amount.
+          break;
+        }
+      }
+      // TO DO: Query DB to get product info using product's ID.
+      PtrArray *newRow = newPtrArray();
+      ptrArrayAppend(newString("1"), newRow);
+      ptrArrayAppend(newString("1234"), newRow);
+      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newRow, rows);
+      break;
+    }
+    case '-': {
+      if (rows->len == 0) {
+        break;
+      }
+      String *title = newString("Eliminar producto (Fila)");
+      String *input = showInput(title, 2, 0);
+      while (input == NULL || !isNumber(input)) {
+        deleteString(input);
+        input = showInput(title, 2, 1);
+      }
+      deleteString(title);
+      int row = toInt(input) - 1;
+      deleteString(input);
+      if (0 <= row && row <= rows->len - 1) {
+        deleteStringArray(rows->data[row]);
+        ptrArrayRemove(row, rows);
+      }
+      break;
+    }
+    }
+  } while (keyPressed != '\n');
+  deleteString(title);
+  deleteString(helpBar1);
+  deleteString(helpBar2);
+
+  deleteStringArray(headings);
+  deleteIntArray(widths);
+  for (int i = 0; i < rows->len; i++) {
+    deleteStringArray(rows->data[i]);
+  }
+  deletePtrArray(rows);
 }
 
 // TO DO.

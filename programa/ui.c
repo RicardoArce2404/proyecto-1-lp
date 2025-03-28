@@ -140,6 +140,42 @@ void printCentered(String *str, int width) {
   refresh();
 }
 
+void showAlert(String *title, String *msg, int row, int isError) {
+  if (row < 1) {
+    return; // In this case there's no room for top border.
+  }
+  int tWidth = 0;
+  int tHeight = 0;
+  getmaxyx(stdscr, tHeight, tWidth);
+  if (row >= tHeight - 1) { // -1 to account the bottom border.
+    return;
+  }
+
+  int width = msg->len + 2;
+  int ulCornerRow = row - 1;
+  int ulCornerCol = (tWidth - width) / 2;
+  Cell ulCorner = {ulCornerRow, ulCornerCol};
+
+  if (isError) {
+    init_pair(1, COLOR_RED, -1);
+    attron(COLOR_PAIR(1));
+    printRectangle(ulCorner, width, 2);
+    attroff(COLOR_PAIR(1));
+  } else {
+    printRectangle(ulCorner, width, 2);
+  }
+
+  move(ulCornerRow, ulCornerCol);
+  printCentered(title, width);
+  move(row, ulCornerCol + 1);
+  printw("%.*s...", msg->len, msg->text);
+  move(tHeight - 1, 0);
+  String *helpBar = newString("Presione cualquier tecla para continuar.");
+  printCentered(msg, tWidth);
+  deleteString(helpBar);
+  getch();
+}
+
 // Shows an input textbox and waits for the user to enter valid text according
 // to inputType. Appears at the specified row and gets wider as needed.
 // If isError == 1, the text box appears in red.
@@ -153,8 +189,7 @@ String *showInput(String *title, int row, int isError) {
   if (row >= tHeight - 1) { // -1 to account the bottom border.
     return NULL;
   }
-  int MIN_WIDTH = 30;
-
+  int MIN_WIDTH = (40 < title->len + 2) ? title->len + 2 : 40;
   int ulCornerRow = row - 1;
   int ulCornerCol = (tWidth - MIN_WIDTH) / 2;
   Cell ulCorner = {ulCornerRow, ulCornerCol};
