@@ -21,7 +21,7 @@ CREATE TABLE Producto (
     stock int,
     costo float,
     precio float,
-    id_familia int,
+    id_familia varchar(10),
 	foreign key (id_familia) references Familia(id_familia)
 );
 
@@ -33,7 +33,7 @@ CREATE TABLE Cotizacion (
 
 CREATE TABLE DetalleCotizacion (
 	cantidad int,
-    id_producto int,
+    id_producto varchar(10),
     id_cotizacion int,
     foreign key (id_producto) references Producto(id_producto),
     foreign key (id_cotizacion) references Cotizacion(id_cotizacion)

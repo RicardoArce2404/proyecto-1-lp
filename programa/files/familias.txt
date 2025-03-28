@@ -1,7 +1,7 @@
-1,Enlatados
-2,Granos básicos
-3,Lácteos
-4,Frutos secos
-5,Frutas
-6,Verduras
-7,Semillas
+Fam1,Enlatados
+Fam2,Granos básicos
+Fam3,Lácteos
+Fam4,Frutos secos
+Fam5,Frutas
+Fam6,Verduras
+Fam7,Semillas

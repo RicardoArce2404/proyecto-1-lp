@@ -3,7 +3,7 @@
 DELIMITER //
 
 CREATE PROCEDURE RegistrarFamilia(
-    IN p_id_familia INT,
+    IN p_id_familia VARCHAR(10),
     IN p_descripcion VARCHAR(100),
     OUT p_resultado INT) -- 1: ID ya existe, 2: Éxito
 BEGIN
@@ -16,7 +16,7 @@ BEGIN
     ELSE
         INSERT INTO Familia (id_familia, descripcion) 
         VALUES (p_id_familia, p_descripcion);
-        SET p_resultado = 0;
+        SET p_resultado = 2;
     END IF;
 END //
 
@@ -25,32 +25,50 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE RegistrarProducto(
-    IN p_id_producto INT,
+    IN p_id_producto VARCHAR(10),
     IN p_descripcion VARCHAR(100),
     IN p_stock INT,
     IN p_costo DECIMAL(10,2),
     IN p_precio DECIMAL(10,2),
-    IN p_id_familia INT,
-    OUT p_resultado INT) -- 1: ID existe, 2: Familia no existe, 3: Costo/precio inválido, 4: Precio < Costo, 0: Éxito
+    IN p_familia_desc VARCHAR(100),  -- Cambiado a descripción de familia
+    OUT p_resultado INT) -- 1: ID existe, 2: Familia no existe, 3: Costo/precio inválido, 4: Precio < Costo, 5: Éxito
 BEGIN
     DECLARE v_existe_producto INT DEFAULT 0;
     DECLARE v_existe_familia INT DEFAULT 0;
+    DECLARE v_id_familia VARCHAR(10);  -- Para almacenar el ID de familia encontrado
+
+    -- Primero buscamos el ID de familia basado en la descripción
+    SELECT id_familia INTO v_id_familia 
+    FROM Familia 
+    WHERE descripcion = p_familia_desc
+    LIMIT 1;
     
-    SELECT COUNT(*) INTO v_existe_producto FROM Producto WHERE id_producto = p_id_producto;
-    SELECT COUNT(*) INTO v_existe_familia FROM Familia WHERE id_familia = p_id_familia;
-    
-    IF v_existe_producto > 0 THEN
-        SET p_resultado = 1;
-    ELSEIF v_existe_familia = 0 THEN
-        SET p_resultado = 2;
-    ELSEIF p_costo <= 0 OR p_precio <= 0 THEN
-        SET p_resultado = 3;
-    ELSEIF p_precio < p_costo THEN
-        SET p_resultado = 4;
+    -- Verificamos si encontramos la familia
+    IF v_id_familia IS NULL THEN
+        SET v_existe_familia = 0;
     ELSE
+        SET v_existe_familia = 1;
+    END IF;
+    
+    -- Verificamos si el producto ya existe
+    SELECT COUNT(*) INTO v_existe_producto 
+    FROM Producto 
+    WHERE id_producto = p_id_producto;
+    
+    -- Lógica de validación
+    IF v_existe_producto > 0 THEN
+        SET p_resultado = 1;  -- ID de producto ya existe
+    ELSEIF v_existe_familia = 0 THEN
+        SET p_resultado = 2;  -- Familia no existe
+    ELSEIF p_costo <= 0 OR p_precio <= 0 THEN
+        SET p_resultado = 3;  -- Costo o precio inválido
+    ELSEIF p_precio < p_costo THEN
+        SET p_resultado = 4;  -- Precio menor que costo
+    ELSE
+        -- Todo correcto, insertamos el producto
         INSERT INTO Producto (id_producto, descripcion, stock, costo, precio, id_familia)
-        VALUES (p_id_producto, p_descripcion, p_stock, p_costo, p_precio, p_id_familia);
-        SET p_resultado = 0;
+        VALUES (p_id_producto, p_descripcion, p_stock, p_costo, p_precio, v_id_familia);
+        SET p_resultado = 5;  -- Éxito
     END IF;
 END //
 
@@ -59,7 +77,7 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE CargarInventario(
-    IN p_id_producto INT,
+    IN p_id_producto VARCHAR(10),
     IN p_cantidad INT,
     OUT p_resultado INT, -- 1: Producto no existe, 2: Cantidad inválida, 0: Éxito
     OUT p_stock_actualizado INT)
@@ -114,7 +132,7 @@ DELIMITER //
 
 CREATE PROCEDURE AgregarDetalleCotizacion(
     IN p_id_cotizacion INT,
-    IN p_id_producto INT,
+    IN p_id_producto VARCHAR(10),
     IN p_cantidad INT,
     OUT p_resultado INT) -- 1: No existe cotización, 2: Stock insuficiente, 3: Producto no existe, 4: Éxito
 BEGIN
