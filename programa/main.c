@@ -487,10 +487,6 @@ void makeInvoice() {
 }
 
 // TO DO.
-void LoadInventory() {
-}
-
-// TO DO.
 void queryInvoice() {
 }
 
@@ -520,7 +516,7 @@ void adminOpts() {
         registerProduct(conn);
         break;
       case 2:
-        LoadInventory();
+        LoadInventory(conn);
         break;
       case 3:
         queryInvoice();

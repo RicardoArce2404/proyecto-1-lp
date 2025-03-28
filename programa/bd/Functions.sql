@@ -1,3 +1,5 @@
+
+
 DELIMITER //
 
 CREATE FUNCTION CotizacionesPendientes() 

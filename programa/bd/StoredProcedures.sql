@@ -74,36 +74,63 @@ END //
 
 DELIMITER ;
 
+
 DELIMITER //
 
 CREATE PROCEDURE CargarInventario(
     IN p_id_producto VARCHAR(10),
     IN p_cantidad INT,
-    OUT p_resultado INT, -- 1: Producto no existe, 2: Cantidad inválida, 0: Éxito
-    OUT p_stock_actualizado INT)
+    IN p_operacion VARCHAR(10), -- 'SUMAR' o 'RESTAR'
+    OUT p_resultado INT
+)
+/*
+Códigos de retorno:
+1: Éxito en la operación
+2: Producto no encontrado
+3: Stock insuficiente para restar (resultaría en negativo)
+4: Operación no válida (debe ser 'SUMAR' o 'RESTAR')
+5: Cantidad no válida (debe ser mayor que 0)
+*/
 BEGIN
-    DECLARE v_stock_actual INT DEFAULT 0;
+    DECLARE v_stock_actual INT;
+    DECLARE v_nuevo_stock INT;
     
-    SELECT IFNULL(stock, -1) INTO v_stock_actual 
-    FROM Producto WHERE id_producto = p_id_producto;
-    
-    IF v_stock_actual = -1 THEN
-        SET p_resultado = 1;
-        SET p_stock_actualizado = 0;
-    ELSEIF p_cantidad <= 0 THEN
-        SET p_resultado = 2;
-        SET p_stock_actualizado = v_stock_actual;
+    -- Validar que la cantidad sea positiva
+    IF p_cantidad <= 0 THEN
+        SET p_resultado = 5;
+    -- Validar que la operación sea válida
+    ELSEIF UPPER(p_operacion) NOT IN ('SUMAR', 'RESTAR') THEN
+        SET p_resultado = 4;
     ELSE
-        UPDATE Producto 
-        SET stock = stock + p_cantidad 
-        WHERE id_producto = p_id_producto;
+        -- Verificar si el producto existe
+        SELECT COUNT(*) INTO @existe FROM Producto WHERE id_producto = p_id_producto;
         
-        SELECT stock INTO p_stock_actualizado FROM Producto WHERE id_producto = p_id_producto;
-        SET p_resultado = 0;
+        IF @existe = 0 THEN
+            SET p_resultado = 2;
+        ELSE
+            -- Obtener el stock actual
+            SELECT stock INTO v_stock_actual FROM Producto WHERE id_producto = p_id_producto;
+            
+            -- Calcular nuevo stock según operación
+            IF UPPER(p_operacion) = 'SUMAR' THEN
+                SET v_nuevo_stock = v_stock_actual + p_cantidad;
+                UPDATE Producto SET stock = v_nuevo_stock WHERE id_producto = p_id_producto;
+                SET p_resultado = 1;
+            ELSE -- RESTAR
+                IF (v_stock_actual - p_cantidad) < 0 THEN
+                    SET p_resultado = 3;
+                ELSE
+                    SET v_nuevo_stock = v_stock_actual - p_cantidad;
+                    UPDATE Producto SET stock = v_nuevo_stock WHERE id_producto = p_id_producto;
+                    SET p_resultado = 1;
+                END IF;
+            END IF;
+        END IF;
     END IF;
 END //
 
 DELIMITER ;
+
 
 DELIMITER //
 

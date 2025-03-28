@@ -33,6 +33,33 @@ typedef struct {
     int error_code;
 } ProcessingError;
 
+
+typedef struct {
+    String *id_producto;
+    int cantidad;
+    int operacion; // 1 para sumar, 0 para restar
+} InventoryUpdate;
+
+typedef struct {
+    String *id_producto;
+    int cantidad;
+    int error_code;
+} InventoryError;
+
+void freeInventoryUpdate(void *update) {
+    if (!update) return;
+    InventoryUpdate *iu = (InventoryUpdate *)update;
+    if (iu->id_producto) deleteString(iu->id_producto);
+    free(iu);
+}
+
+void freeInventoryError(void *error) {
+    if (!error) return;
+    InventoryError *ie = (InventoryError *)error;
+    if (ie->id_producto) deleteString(ie->id_producto);
+    free(ie);
+}
+
 // Funciones para liberar memoria
 void freeFamily(void *family) {
     if (!family) return;
@@ -63,7 +90,6 @@ String *readStringFromUI(String *prompt, int row) {
     if (!prompt) return NULL;
     return showInput(prompt, row, 0);
 }
-
 
 // Función para mostrar errores en tabla
 void showProcessingErrors(PtrArray *errors) {
@@ -120,6 +146,110 @@ void showProcessingErrors(PtrArray *errors) {
     }
 
     String *title = newString("Registros no procesados");
+    String *helpBar1 = newString("Use las flechas para navegar");
+    String *helpBar2 = newString("Presione Enter para continuar");
+
+    int tWidth = 0, tHeight = 0;
+    getmaxyx(stdscr, tHeight, tWidth);
+    int initialRow = 0;
+    int keyPressed = 0;
+
+    do {
+        showScrollableList(title, headings, rows, widths, initialRow);
+        
+        move(tHeight - 2, 1);
+        printCentered(helpBar1, tWidth);
+        move(tHeight - 1, 1);
+        printCentered(helpBar2, tWidth);
+        
+        keyPressed = getch();
+        if (keyPressed == KEY_UP && initialRow > 0) {
+            initialRow--;
+        } else if (keyPressed == KEY_DOWN && initialRow + 10 < rows->len) {
+            initialRow++;
+        }
+    } while (keyPressed != '\n');
+
+    // Liberar memoria
+    deleteString(title);
+    deleteString(helpBar1);
+    deleteString(helpBar2);
+    deleteStringArray(headings);
+    deleteIntArray(widths);
+    
+    for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        for (int j = 0; j < row->len; j++) {
+            deleteString(row->data[j]);
+        }
+        deletePtrArray(row);
+    }
+    deletePtrArray(rows);
+}
+
+// Función para mostrar productos exitosos en tabla
+void showSuccessfulProducts(PtrArray *products) {
+    if (!products || products->len == 0) {
+        String *msg = newString("No hay productos exitosos para mostrar");
+        showInput(msg, 10, 0);
+        deleteString(msg);
+        return;
+    }
+
+    PtrArray *headings = newPtrArray();
+    ptrArrayAppend(newString("ID"), headings);
+    ptrArrayAppend(newString("Descripción"), headings);
+    ptrArrayAppend(newString("Familia"), headings);
+    ptrArrayAppend(newString("Costo"), headings);
+    ptrArrayAppend(newString("Precio"), headings);
+    ptrArrayAppend(newString("Stock"), headings);
+
+    IntArray *widths = newIntArray();
+    intArrayAppend(10, widths);   // ID
+    intArrayAppend(25, widths);   // Descripción
+    intArrayAppend(15, widths);   // Familia
+    intArrayAppend(10, widths);   // Costo
+    intArrayAppend(10, widths);   // Precio
+    intArrayAppend(8, widths);    // Stock
+
+    PtrArray *rows = newPtrArray();
+    
+    for (int i = 0; i < products->len; i++) {
+        Product *product = (Product *)products->data[i];
+        PtrArray *row = newPtrArray();
+        
+        // ID
+        ptrArrayAppend(newString(product->id->text), row);
+        
+        // Descripción (limitada a 25 caracteres)
+        char desc[26];
+        snprintf(desc, sizeof(desc), "%.25s", product->description->text);
+        ptrArrayAppend(newString(desc), row);
+        
+        // Familia (limitada a 15 caracteres)
+        char family[16];
+        snprintf(family, sizeof(family), "%.15s", product->family_desc->text);
+        ptrArrayAppend(newString(family), row);
+        
+        // Costo (formateado a 2 decimales)
+        char costStr[12];
+        snprintf(costStr, sizeof(costStr), "%.2f", product->cost);
+        ptrArrayAppend(newString(costStr), row);
+        
+        // Precio (formateado a 2 decimales)
+        char priceStr[12];
+        snprintf(priceStr, sizeof(priceStr), "%.2f", product->price);
+        ptrArrayAppend(newString(priceStr), row);
+        
+        // Stock
+        char stockStr[8];
+        snprintf(stockStr, sizeof(stockStr), "%d", product->stock);
+        ptrArrayAppend(newString(stockStr), row);
+        
+        ptrArrayAppend(row, rows);
+    }
+
+    String *title = newString("Productos Registrados Exitosamente");
     String *helpBar1 = newString("Use las flechas para navegar");
     String *helpBar2 = newString("Presione Enter para continuar");
 
@@ -311,7 +441,6 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
         totalRecords++;
     }
 
-
     // Mostrar resultados exitosos en tabla bien formateada
     if (successfulFamilies->len > 0) {
         clear();
@@ -447,7 +576,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
         }
 
         // Validar campos numéricos
-        // Reemplazar esta parte:
         if (!isNumber(costStr) || !isNumber(priceStr) || !isNumber(stockStr)) {
             ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
             error->id = newStringN(id->text, id->len);
@@ -455,40 +583,6 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
             error->error_code = -7;
             ptrArrayAppend(error, errorProducts);
             failedRecords++;
-            continue;
-        }
-
-        // Con esta versión mejorada:
-        int costValid = isNumber(costStr);
-        int priceValid = isNumber(priceStr);
-        int stockValid = isNumber(stockStr);
-
-        if (!isNumber(costStr) || !isNumber(priceStr) || !isNumber(stockStr)) {
-            ProcessingError *error = (ProcessingError *)malloc(sizeof(ProcessingError));
-            error->id = newStringN(id->text, id->len);
-            
-            // Crear mensaje de error detallado
-            char errorMsg[100];
-            snprintf(errorMsg, sizeof(errorMsg), 
-                    "Valores numéricos inválidos - Costo: %s, Precio: %s, Stock: %s",
-                    costValid ? "OK" : "Inválido",
-                    priceValid ? "OK" : "Inválido",
-                    stockValid ? "OK" : "Inválido");
-            
-            error->description = newString(errorMsg);
-            error->error_code = -7;
-            ptrArrayAppend(error, errorProducts);
-            failedRecords++;
-            
-            // Debug: Mostrar los valores problemáticos
-            printw("Valores inválidos detectados:\n");
-            printw("ID: %.*s\n", id->len, id->text);
-            printw("Costo: %.*s\n", costStr->len, costStr->text);
-            printw("Precio: %.*s\n", priceStr->len, priceStr->text);
-            printw("Stock: %.*s\n", stockStr->len, stockStr->text);
-            refresh();
-            getch(); // Pausa para ver los mensajes
-            
             continue;
         }
 
@@ -641,6 +735,13 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
         totalRecords++;
     }
     
+    // Mostrar resultados exitosos en tabla bien formateada
+    if (successfulProducts->len > 0) {
+        clear();
+        showSuccessfulProducts(successfulProducts);
+    }
+
+    // Mostrar resumen
     char summaryText[150];
     if (failedRecords > 0) {
         snprintf(summaryText, sizeof(summaryText), 
@@ -660,16 +761,424 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
         showProcessingErrors(errorProducts);
     }
 
+    // Liberar memoria
     for (int i = 0; i < errorProducts->len; i++) {
         freeProcessingError(errorProducts->data[i]);
     }
     deletePtrArray(errorProducts);
+    deletePtrArray(successfulProducts);
 
     for (int i = 0; i < csvLines->len; i++) {
         PtrArray *line = csvLines->data[i];
         deleteStringArray(line);
     }
     deletePtrArray(csvLines);
+}
+
+
+void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpdates) {
+    if (!successfulUpdates && !errorUpdates) return;
+
+    // Mostrar actualizaciones exitosas
+    if (successfulUpdates && successfulUpdates->len > 0) {
+        PtrArray *headings = newPtrArray();
+        ptrArrayAppend(newString("ID Producto"), headings);
+        ptrArrayAppend(newString("Operación"), headings);
+        ptrArrayAppend(newString("Cantidad"), headings);
+
+        IntArray *widths = newIntArray();
+        intArrayAppend(15, widths);
+        intArrayAppend(15, widths);
+        intArrayAppend(10, widths);
+
+        PtrArray *rows = newPtrArray();
+        
+        for (int i = 0; i < successfulUpdates->len; i++) {
+            InventoryUpdate *update = (InventoryUpdate *)successfulUpdates->data[i];
+            PtrArray *row = newPtrArray();
+            
+            ptrArrayAppend(newString(update->id_producto->text), row);
+            ptrArrayAppend(newString(update->operacion ? "SUMAR" : "RESTAR"), row);
+            
+            char cantidadStr[12];
+            snprintf(cantidadStr, sizeof(cantidadStr), "%d", update->cantidad);
+            ptrArrayAppend(newString(cantidadStr), row);
+            
+            ptrArrayAppend(row, rows);
+        }
+
+        String *title = newString("Actualizaciones de Inventario Exitosas");
+        showScrollableList(title, headings, rows, widths, 0);
+        
+        // Esperar confirmación
+        String *continueMsg = newString("Presione Enter para continuar");
+        showInput(continueMsg, getmaxy(stdscr) - 2, 0);
+        deleteString(continueMsg);
+
+        // Liberar memoria
+        deleteString(title);
+        deleteStringArray(headings);
+        deleteIntArray(widths);
+        
+        for (int i = 0; i < rows->len; i++) {
+            PtrArray *row = rows->data[i];
+            deleteStringArray(row);
+        }
+        deletePtrArray(rows);
+    }
+
+    // Mostrar errores si los hay
+    if (errorUpdates && errorUpdates->len > 0) {
+        PtrArray *headings = newPtrArray();
+        ptrArrayAppend(newString("ID Producto"), headings);
+        ptrArrayAppend(newString("Cantidad"), headings);
+        ptrArrayAppend(newString("Error"), headings);
+
+        IntArray *widths = newIntArray();
+        intArrayAppend(15, widths);
+        intArrayAppend(10, widths);
+        intArrayAppend(40, widths);
+
+        PtrArray *rows = newPtrArray();
+        
+        for (int i = 0; i < errorUpdates->len; i++) {
+            InventoryError *error = (InventoryError *)errorUpdates->data[i];
+            PtrArray *row = newPtrArray();
+            
+            ptrArrayAppend(newString(error->id_producto->text), row);
+            
+            char cantidadStr[12];
+            snprintf(cantidadStr, sizeof(cantidadStr), "%d", error->cantidad);
+            ptrArrayAppend(newString(cantidadStr), row);
+            
+            char *errorMsg;
+            switch(error->error_code) {
+                case 2: errorMsg = "Producto no encontrado"; break;
+                case 3: errorMsg = "Stock insuficiente para restar"; break;
+                case 4: errorMsg = "Operación no válida"; break;
+                case 5: errorMsg = "Cantidad no válida (debe ser > 0)"; break;
+                case -1: errorMsg = "Error de sistema: No se pudo inicializar statement"; break;
+                case -2: errorMsg = "Error de sistema: Fallo al preparar consulta"; break;
+                case -3: errorMsg = "Error de sistema: Fallo al bindear parámetros"; break;
+                case -4: errorMsg = "Error de sistema: Fallo al ejecutar procedimiento"; break;
+                case -5: errorMsg = "Formato inválido: Campos faltantes en el archivo"; break;
+                default: errorMsg = "Error desconocido"; break;
+            }
+            
+            ptrArrayAppend(newString(errorMsg), row);
+            ptrArrayAppend(row, rows);
+        }
+
+        String *title = newString("Errores en Actualización de Inventario");
+        String *helpBar1 = newString("Use las flechas para navegar");
+        String *helpBar2 = newString("Presione Enter para continuar");
+
+        int tWidth = 0, tHeight = 0;
+        getmaxyx(stdscr, tHeight, tWidth);
+        int initialRow = 0;
+        int keyPressed = 0;
+
+        do {
+            showScrollableList(title, headings, rows, widths, initialRow);
+            
+            move(tHeight - 2, 1);
+            printCentered(helpBar1, tWidth);
+            move(tHeight - 1, 1);
+            printCentered(helpBar2, tWidth);
+            
+            keyPressed = getch();
+            if (keyPressed == KEY_UP && initialRow > 0) {
+                initialRow--;
+            } else if (keyPressed == KEY_DOWN && initialRow + 10 < rows->len) {
+                initialRow++;
+            }
+        } while (keyPressed != '\n');
+
+        deleteString(title);
+        deleteString(helpBar1);
+        deleteString(helpBar2);
+        deleteStringArray(headings);
+        deleteIntArray(widths);
+        
+        for (int i = 0; i < rows->len; i++) {
+            PtrArray *row = rows->data[i];
+            deleteStringArray(row);
+        }
+        deletePtrArray(rows);
+    }
+}
+
+void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
+    if (!conn || !filePath) return;
+
+    PtrArray *csvLines = readCsv(filePath);
+    if (!csvLines || csvLines->len == 0) {
+        String *msg = newString("Error: Archivo vacío o formato inválido");
+        showInput(msg, 10, 1);
+        deleteString(msg);
+        if (csvLines) deletePtrArray(csvLines);
+        return;
+    }
+
+    PtrArray *successfulUpdates = newPtrArray();
+    PtrArray *errorUpdates = newPtrArray();
+    int totalRecords = 0, failedRecords = 0;
+
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = (PtrArray *)csvLines->data[i];
+        
+        // Validación de formato (2 campos: ID y cantidad)
+        if (line->len != 2) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newString("N/A");
+            error->cantidad = 0;
+            error->error_code = -5;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+            continue;
+        }
+
+        String *id = (String *)line->data[0];
+        String *cantidadStr = (String *)line->data[1];
+
+        // Validación de campos no vacíos
+        if (id->len <= 0 || cantidadStr->len <= 0) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len > 0 ? id->len : 1);
+            error->cantidad = 0;
+            error->error_code = -6;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+            continue;
+        }
+
+        // Validación numérica
+        if (!isNumber(cantidadStr)) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = 0;
+            error->error_code = -7;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+            continue;
+        }
+
+        int cantidad = atoi(cantidadStr->text);
+        if (cantidad <= 0) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = 5;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+            continue;
+        }
+
+        // Preparar llamada al procedimiento almacenado
+        MYSQL_STMT *stmt = mysql_stmt_init(conn);
+        if (!stmt) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -1;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+            continue;
+        }
+
+        const char *query = "CALL CargarInventario(?, ?, ?, ?)";
+        if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -2;
+            ptrArrayAppend(error, errorUpdates);
+            mysql_stmt_close(stmt);
+            failedRecords++;
+            continue;
+        }
+
+        // Inicializar parámetros de forma segura
+        MYSQL_BIND params[4];
+        memset(params, 0, sizeof(params)); // Limpiar toda la estructura
+
+        // Parámetro 1: ID del producto
+        unsigned long id_len = (unsigned long)id->len;  // Conversión explícita
+        params[0].buffer_type = MYSQL_TYPE_STRING;
+        params[0].buffer = (char *)id->text;
+        params[0].buffer_length = id_len;
+        params[0].length = &id_len;  // Usamos el unsigned long
+
+        // Parámetro 3: Operación (SUMAR/RESTAR)
+        const char *operacion = isAddition ? "SUMAR" : "RESTAR";
+        unsigned long operacion_len = strlen(operacion);
+        params[2].buffer_type = MYSQL_TYPE_STRING;
+        params[2].buffer = (char *)operacion;
+        params[2].buffer_length = operacion_len;
+        params[2].length = &operacion_len;
+
+        params[2].buffer_type = MYSQL_TYPE_STRING;
+        params[2].buffer = (char *)operacion;
+        params[2].buffer_length = operacion_len;
+        params[2].length = &operacion_len;
+
+        // Parámetro 4: Resultado (salida)
+        int resultado = 0;
+        params[3].buffer_type = MYSQL_TYPE_LONG;
+        params[3].buffer = &resultado;
+        params[3].is_unsigned = 0;
+        params[3].is_null = 0;
+
+        if (mysql_stmt_bind_param(stmt, params)) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -3;
+            ptrArrayAppend(error, errorUpdates);
+            mysql_stmt_close(stmt);
+            failedRecords++;
+            continue;
+        }
+
+        if (mysql_stmt_execute(stmt)) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -4;
+            ptrArrayAppend(error, errorUpdates);
+            mysql_stmt_close(stmt);
+            failedRecords++;
+            continue;
+        }
+
+        // Vincular y recuperar el parámetro de salida
+        MYSQL_BIND out_param;
+        memset(&out_param, 0, sizeof(out_param));
+        out_param.buffer_type = MYSQL_TYPE_LONG;
+        out_param.buffer = &resultado;
+        out_param.is_unsigned = 0;
+        out_param.is_null = 0;
+
+        if (mysql_stmt_bind_result(stmt, &out_param)) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -8;
+            ptrArrayAppend(error, errorUpdates);
+            mysql_stmt_close(stmt);
+            failedRecords++;
+            continue;
+        }
+
+        if (mysql_stmt_fetch(stmt)) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = -9;
+            ptrArrayAppend(error, errorUpdates);
+            mysql_stmt_close(stmt);
+            failedRecords++;
+            continue;
+        }
+
+        if (resultado != 1) {
+            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
+            error->id_producto = newStringN(id->text, id->len);
+            error->cantidad = cantidad;
+            error->error_code = resultado;
+            ptrArrayAppend(error, errorUpdates);
+            failedRecords++;
+        } else {
+            InventoryUpdate *update = (InventoryUpdate *)malloc(sizeof(InventoryUpdate));
+            if (update) {
+                update->id_producto = newStringN(id->text, id->len);
+                update->cantidad = cantidad;
+                update->operacion = isAddition;
+                ptrArrayAppend(update, successfulUpdates);
+            }
+        }
+
+        mysql_stmt_close(stmt);
+        totalRecords++;
+    }
+
+    // Mostrar resumen
+    char summaryText[150];
+    if (failedRecords > 0) {
+        snprintf(summaryText, sizeof(summaryText), 
+                "Resumen: %d actualizaciones procesadas, %d fallidas",
+                totalRecords - failedRecords, failedRecords);
+    } else {
+        snprintf(summaryText, sizeof(summaryText), 
+                "Resumen: Todas las %d actualizaciones se procesaron exitosamente",
+                totalRecords);
+    }
+
+    String *summary = newString(summaryText);
+    showInput(summary, 10, failedRecords > 0 ? 1 : 0);
+    deleteString(summary);
+
+    // Mostrar resultados
+    showInventoryUpdateResults(successfulUpdates, errorUpdates);
+
+    // Liberar memoria
+    for (int i = 0; i < successfulUpdates->len; i++) {
+        freeInventoryUpdate(successfulUpdates->data[i]);
+    }
+    deletePtrArray(successfulUpdates);
+
+    for (int i = 0; i < errorUpdates->len; i++) {
+        freeInventoryError(errorUpdates->data[i]);
+    }
+    deletePtrArray(errorUpdates);
+
+    for (int i = 0; i < csvLines->len; i++) {
+        PtrArray *line = csvLines->data[i];
+        deleteStringArray(line);
+    }
+    deletePtrArray(csvLines);
+}
+
+void LoadInventory(MYSQL *conn) {
+    clear();
+    
+    // Crear opciones para el menú de carga de inventario
+    PtrArray *opts = newPtrArray();
+    ptrArrayAppend(newString("Sumar al inventario"), opts);
+    ptrArrayAppend(newString("Restar del inventario"), opts);
+    ptrArrayAppend(newString("Regresar"), opts);
+
+    int selectedOpt = 0;
+    while (selectedOpt != 2) { // 2 es la opción "Regresar"
+        selectedOpt = showMenu(opts);
+        
+        if (selectedOpt == 0) { // Sumar inventario
+            String *filePrompt = newString("Ingrese la ruta del archivo para SUMAR inventario:");
+            String *filePath = showInput(filePrompt, 10, 0);
+            deleteString(filePrompt);
+            
+            if (filePath) {
+                loadInventoryFromFile(conn, filePath, 1); // 1 para suma
+                deleteString(filePath);
+            }
+        } 
+        else if (selectedOpt == 1) { // Restar inventario
+            String *filePrompt = newString("Ingrese la ruta del archivo para RESTAR inventario:");
+            String *filePath = showInput(filePrompt, 10, 0);
+            deleteString(filePrompt);
+            
+            if (filePath) {
+                loadInventoryFromFile(conn, filePath, 0); // 0 para resta
+                deleteString(filePath);
+            }
+        }
+    }
+    
+    // Liberar memoria de las opciones del menú
+    for (int i = 0; i < opts->len; i++) {
+        deleteString((String *)opts->data[i]);
+    }
+    deletePtrArray(opts);
 }
 
 void registerProductFamily(MYSQL *conn) {
