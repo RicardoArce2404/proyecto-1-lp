@@ -245,6 +245,8 @@ int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
   Cell ulCorner = {ulCornerRow, ulCornerCol};
   clear();
   printRectangle(ulCorner, width, height);
+  move(ulCornerRow - 1, ulCornerCol);
+  printCentered(title, width);
   Cell headerLeftCell = {ulCornerRow + 2, ulCornerCol + 1};
   Cell headerRightCell = {ulCornerRow + 2, ulCornerCol + width - 1};
   // Line that separates headings and rows.

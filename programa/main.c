@@ -28,7 +28,7 @@ void catalogQuery() {
   intArrayAppend(8, widths);
   intArrayAppend(6, widths);
 
-  PtrArray *families = newPtrArray();  // Stores families.
+  /*PtrArray *families = newPtrArray();  // Stores families.*/
 
   PtrArray *row1 = newPtrArray();
   ptrArrayAppend(newString("1"), row1);
@@ -87,7 +87,7 @@ void catalogQuery() {
       }
       deleteString(title);
 
-      int id = toInt(input);
+      /*int id = toInt(input);*/
       clearPtrArray(filteredRows);
       for (int i = 0; i < rows->len; i++) {
         PtrArray *row = rows->data[i];
