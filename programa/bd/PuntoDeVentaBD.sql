@@ -11,12 +11,12 @@ INSERT INTO Usuarios (username, password_hash)
 VALUES ('admin', SHA2('admin123', 256)); -- SHA-256
 
 CREATE TABLE Familia (
-	id_familia int primary key ,
+	id_familia varchar(10) primary key ,
     descripcion varchar(100)
 );
 
 CREATE TABLE Producto (
-	id_producto int primary key,
+	id_producto varchar(10) primary key,
     descripcion varchar(100),
     stock int,
     costo float,
