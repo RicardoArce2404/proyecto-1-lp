@@ -632,12 +632,12 @@ void adminOpts() {
   ptrArrayAppend(newString("Regresar"), opts);
 
   int selectedOpt = 0;
-  while (selectedOpt != 5) {
+  while (selectedOpt != 6) {
     selectedOpt = showMenu(opts);
     switch (selectedOpt) {
       case 0:
         registerProductFamily(conn);
-        adminOpts();
+        /*adminOpts();*/
         break;
       case 1:
         registerProduct(conn);
@@ -649,6 +649,9 @@ void adminOpts() {
         LoadInventory(conn);
         break;
       case 4:
+        queryInvoice();
+        break;
+      case 5:
         statistics();
         break;
       }

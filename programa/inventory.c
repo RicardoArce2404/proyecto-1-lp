@@ -432,7 +432,7 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
             if (family) {
                 family->id = newStringN(id->text,id->len);
                 family->description = newStringN(description->text, description->len);
-                ptrArrayAppend(family, families);
+                /*ptrArrayAppend(family, families);*/
                 ptrArrayAppend(family, successfulFamilies);
             }
         }
@@ -516,7 +516,13 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     for (int i = 0; i < errorFamilies->len; i++) {
         freeProcessingError(errorFamilies->data[i]);
     }
+    for (int i = 0; i < errorFamilies->len; i++) {
+      freeFamily(errorFamilies->data[i]);
+    }
     deletePtrArray(errorFamilies);
+    for (int i = 0; i < successfulFamilies->len; i++) {
+      freeFamily(successfulFamilies->data[i]);
+    }
     deletePtrArray(successfulFamilies);
 
     for (int i = 0; i < csvLines->len; i++) {
