@@ -74,6 +74,35 @@ END //
 
 DELIMITER ;
 
+DELIMITER //
+
+CREATE PROCEDURE EliminarProducto(
+    IN p_id_producto VARCHAR(10),
+    OUT p_resultado INT) -- 1: Éxito, 2: Producto no existe, 3: Producto está en cotizaciones/facturas
+BEGIN
+    DECLARE v_existe INT DEFAULT 0;
+    DECLARE v_en_uso INT DEFAULT 0;
+    
+    -- Verificar si el producto existe
+    SELECT COUNT(*) INTO v_existe FROM Producto WHERE id_producto = p_id_producto;
+    
+    IF v_existe = 0 THEN
+        SET p_resultado = 2; -- Producto no existe
+    ELSE
+        -- Verificar si el producto está en uso en cotizaciones o facturas
+        SELECT COUNT(*) INTO v_en_uso FROM DetalleCotizacion WHERE id_producto = p_id_producto;
+        
+        IF v_en_uso > 0 THEN
+            SET p_resultado = 3; -- Producto está en uso
+        ELSE
+            -- Eliminar el producto
+            DELETE FROM Producto WHERE id_producto = p_id_producto;
+            SET p_resultado = 1; -- Éxito
+        END IF;
+    END IF;
+END //
+
+DELIMITER ;
 
 DELIMITER //
 

@@ -1009,6 +1009,13 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
         params[0].buffer_length = id_len;
         params[0].length = &id_len;  // Usamos el unsigned long
 
+        // Parámetro 2: Cantidad (corregido)
+        params[1].buffer_type = MYSQL_TYPE_LONG;
+        params[1].buffer = (char *)&cantidad;  // Conversión explícita a char*
+        params[1].is_unsigned = 0;  // Cambiado a 0 para permitir valores positivos y negativos
+        params[1].is_null = 0;
+        params[1].length = 0;
+
         // Parámetro 3: Operación (SUMAR/RESTAR)
         const char *operacion = isAddition ? "SUMAR" : "RESTAR";
         unsigned long operacion_len = strlen(operacion);
@@ -1213,4 +1220,274 @@ void registerProduct(MYSQL *conn) {
     loadProductsFromFile(conn, filePath, products);
     deleteString(filePath);
     deletePtrArray(products);
+}
+
+
+void showProductsTable(MYSQL *conn, int row) {
+    // Consultar todos los productos
+    const char *query = "SELECT p.id_producto, p.descripcion, f.descripcion, p.costo, p.precio, p.stock "
+                        "FROM Producto p JOIN Familia f ON p.id_familia = f.id_familia "
+                        "ORDER BY p.id_producto";
+    
+    if (mysql_query(conn, query)) {
+        String *errorMsg = newString("Error al consultar productos");
+        showInput(errorMsg, row, 1);
+        deleteString(errorMsg);
+        return;
+    }
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    if (!result) {
+        String *errorMsg = newString("Error al obtener resultados");
+        showInput(errorMsg, row, 1);
+        deleteString(errorMsg);
+        return;
+    }
+
+    // Preparar encabezados
+    PtrArray *headings = newPtrArray();
+    ptrArrayAppend(newString("ID"), headings);
+    ptrArrayAppend(newString("Descripción"), headings);
+    ptrArrayAppend(newString("Familia"), headings);
+    ptrArrayAppend(newString("Costo"), headings);
+    ptrArrayAppend(newString("Precio"), headings);
+    ptrArrayAppend(newString("Stock"), headings);
+
+    // Anchos de columnas
+    IntArray *widths = newIntArray();
+    intArrayAppend(10, widths);   // ID
+    intArrayAppend(25, widths);   // Descripción
+    intArrayAppend(15, widths);   // Familia
+    intArrayAppend(10, widths);   // Costo
+    intArrayAppend(10, widths);   // Precio
+    intArrayAppend(8, widths);    // Stock
+
+    // Preparar filas de datos
+    PtrArray *rows = newPtrArray();
+    MYSQL_ROW mysql_row;
+    
+    while ((mysql_row = mysql_fetch_row(result))) {
+        PtrArray *row = newPtrArray();
+        
+        // ID
+        ptrArrayAppend(newString(mysql_row[0]), row);
+        
+        // Descripción (limitada a 25 caracteres)
+        char desc[26];
+        snprintf(desc, sizeof(desc), "%.25s", mysql_row[1]);
+        ptrArrayAppend(newString(desc), row);
+        
+        // Familia (limitada a 15 caracteres)
+        char family[16];
+        snprintf(family, sizeof(family), "%.15s", mysql_row[2]);
+        ptrArrayAppend(newString(family), row);
+        
+        // Costo (formateado a 2 decimales)
+        char costStr[12];
+        snprintf(costStr, sizeof(costStr), "%.2f", atof(mysql_row[3]));
+        ptrArrayAppend(newString(costStr), row);
+        
+        // Precio (formateado a 2 decimales)
+        char priceStr[12];
+        snprintf(priceStr, sizeof(priceStr), "%.2f", atof(mysql_row[4]));
+        ptrArrayAppend(newString(priceStr), row);
+        
+        // Stock
+        ptrArrayAppend(newString(mysql_row[5]), row);
+        
+        ptrArrayAppend(row, rows);
+    }
+    mysql_free_result(result);
+
+    // Mostrar la tabla
+    String *title = newString("Listado de Productos");
+    showScrollableList(title, headings, rows, widths, 0);
+    
+    // Liberar memoria
+    deleteString(title);
+    deleteStringArray(headings);
+    deleteIntArray(widths);
+    
+    for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        deleteStringArray(row);
+    }
+    deletePtrArray(rows);
+}
+
+// Función principal para eliminar producto
+void deleteProduct(MYSQL *conn) {
+    clear();
+    
+    // Mostrar tabla de productos en la parte superior
+    showProductsTable(conn, 0);
+    
+    // Calcular posición segura para la entrada
+    int maxy = getmaxy(stdscr);
+    int input_row = (maxy > 3) ? (maxy - 3) : 1;
+    
+    // Pedir ID del producto a eliminar
+    String *prompt = newString("Ingrese ID del producto a eliminar:");
+    if (!prompt) return;
+    
+    String *productId = showInput(prompt, input_row, 0);
+    deleteString(prompt);
+    
+    if (!productId || productId->len == 0) {
+        if (productId) deleteString(productId);
+        return;
+    }
+
+    // Validar longitud del ID antes de continuar
+    if (productId->len > 10) { // Asumiendo que los IDs no exceden 10 caracteres
+        String *errorMsg = newString("Error: ID demasiado largo (max 10 chars)");
+        showInput(errorMsg, input_row, 1);
+        deleteString(errorMsg);
+        deleteString(productId);
+        return;
+    }
+
+    // Confirmar eliminación en posición segura
+    int confirm_row = (maxy > 1) ? (maxy - 1) : 1;
+    char confirmMsg[100];
+    snprintf(confirmMsg, sizeof(confirmMsg), "¿Eliminar producto %s? (S/N)", productId->text);
+    
+    String *confirmPrompt = newString(confirmMsg);
+    if (!confirmPrompt) {
+        deleteString(productId);
+        return;
+    }
+    
+    String *confirm = showInput(confirmPrompt, confirm_row, 0);
+    deleteString(confirmPrompt);
+
+    if (!confirm || (confirm->text[0] != 'S' && confirm->text[0] != 's')) {
+        deleteString(productId);
+        if (confirm) deleteString(confirm);
+        return;
+    }
+    deleteString(confirm);
+
+    // Llamar al procedimiento almacenado con manejo seguro
+    MYSQL_STMT *stmt = mysql_stmt_init(conn);
+    if (!stmt) {
+        String *errorMsg = newString("Error al inicializar statement");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        deleteString(productId);
+        return;
+    }
+
+    const char *query = "CALL EliminarProducto(?, ?)";
+    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+        String *errorMsg = newString("Error al preparar statement");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        mysql_stmt_close(stmt);
+        deleteString(productId);
+        return;
+    }
+
+    MYSQL_BIND params[2];
+    memset(params, 0, sizeof(params));
+    int resultado = 0;
+
+    // Parámetro 1: ID del producto (con verificación de longitud)
+    char id_buffer[11] = {0}; // 10 chars + null terminator
+    strncpy(id_buffer, productId->text, sizeof(id_buffer) - 1);
+    
+    params[0].buffer_type = MYSQL_TYPE_STRING;
+    params[0].buffer = id_buffer;
+    params[0].buffer_length = strlen(id_buffer);
+
+    // Parámetro 2: Resultado (salida)
+    params[1].buffer_type = MYSQL_TYPE_LONG;
+    params[1].buffer = &resultado;
+    params[1].is_unsigned = 0;
+    params[1].is_null = 0;
+
+    if (mysql_stmt_bind_param(stmt, params)) {
+        String *errorMsg = newString("Error al bindear parámetros");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        mysql_stmt_close(stmt);
+        deleteString(productId);
+        return;
+    }
+
+    if (mysql_stmt_execute(stmt)) {
+        String *errorMsg = newString("Error al ejecutar procedimiento");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        mysql_stmt_close(stmt);
+        deleteString(productId);
+        return;
+    }
+
+    // Vincular y recuperar el parámetro de salida
+    MYSQL_BIND out_param;
+    memset(&out_param, 0, sizeof(out_param));
+    out_param.buffer_type = MYSQL_TYPE_LONG;
+    out_param.buffer = &resultado;
+    out_param.is_unsigned = 0;
+    out_param.is_null = 0;
+
+    if (mysql_stmt_bind_result(stmt, &out_param)) {
+        String *errorMsg = newString("Error al vincular parámetro de salida");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        mysql_stmt_close(stmt);
+        deleteString(productId);
+        return;
+    }
+
+    if (mysql_stmt_fetch(stmt)) {
+        String *errorMsg = newString("Error al obtener resultado");
+        showInput(errorMsg, confirm_row, 1);
+        deleteString(errorMsg);
+        mysql_stmt_close(stmt);
+        deleteString(productId);
+        return;
+    }
+
+    mysql_stmt_close(stmt);
+
+    // Mostrar resultado con manejo seguro de posición
+    String *resultMsg = NULL;
+    int isError = 0;
+    switch(resultado) {
+        case 1:
+            resultMsg = newString("Producto eliminado exitosamente");
+            isError = 0;
+            break;
+        case 2:
+            resultMsg = newString("Error: El producto no existe");
+            isError = 1;
+            break;
+        case 3:
+            resultMsg = newString("Error: Producto está en cotizaciones/facturas");
+            isError = 1;
+            break;
+        default:
+            resultMsg = newString("Error desconocido al eliminar producto");
+            isError = 1;
+            break;
+    }
+
+    if (resultMsg) {
+        showAlert(newString("Resultado"), resultMsg, (maxy > 3) ? (maxy - 3) : 1, isError);
+        deleteString(resultMsg);
+    }
+    
+    deleteString(productId);
+    
+    // Volver a mostrar la tabla actualizada con manejo seguro
+    clear();
+    showProductsTable(conn, 0);
+    
+    String *continueMsg = newString("Presione cualquier tecla para continuar");
+    if (continueMsg) {
+        showInput(continueMsg, (maxy > 1) ? (maxy - 1) : 1, 0);
+        deleteString(continueMsg);
+    }
 }

@@ -516,10 +516,10 @@ void adminOpts() {
         registerProduct(conn);
         break;
       case 2:
-        LoadInventory(conn);
+        deleteProduct(conn);
         break;
       case 3:
-        queryInvoice();
+        LoadInventory(conn);
         break;
       case 4:
         statistics();
