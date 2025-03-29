@@ -10,6 +10,7 @@
 #include <mysql/mysql.h>
 #include <ncurses.h>
 #include <string.h>
+#include <time.h>
 
 MYSQL *conn;
 
@@ -467,7 +468,7 @@ void makeInvoice() {
   }
   deleteString(title);
   /*int quotationId = toInt(input);*/
-
+  deleteString(input);
   if (0) { // If quotation doesn't exist.
     String *title = newString("Cotización no encontrada.");
     String *msg = newString("Error: No existe ninguna cotización con el número introducido.");
@@ -484,6 +485,132 @@ void makeInvoice() {
     return;
   }
 
+  title = newString("Ingrese el nombre del cliente");
+  String *client = showInput(title, tHeight / 2, 0);
+  while (client == NULL) {
+    deleteString(client);
+    client = showInput(title, tHeight / 2, 1);
+  }
+  deleteString(title);
+
+  String *invoiceId = newString("1");
+  String *localName = newString("PulpeTEC");
+  String *legalId = newString("3-101-123456");
+  String *phoneNum = newString("1234-5678");
+  time_t t = time(NULL);
+  struct tm *lt = localtime(&t);
+  char buffer[1024] = {0};
+  snprintf(buffer, 1024, "%i-%i-%i", lt->tm_mday, lt->tm_mon + 1, lt->tm_year + 1900);
+  String *date = newString(buffer);
+
+  PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
+  String *helpBar2 = newString("Cancelar: C  |  Aceptar: A");
+
+  PtrArray *headings = newPtrArray();
+  ptrArrayAppend(newString("#"), headings);
+  ptrArrayAppend(newString("Nombre"), headings);
+  ptrArrayAppend(newString("Cantidad"), headings);
+  ptrArrayAppend(newString("Precio"), headings);
+  ptrArrayAppend(newString("Total"), headings);
+
+  IntArray *widths = newIntArray();
+  intArrayAppend(3, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(10, widths);
+  intArrayAppend(10, widths);
+  intArrayAppend(10, widths);
+
+  // The invoice header occupies 13 rows, plus 2 for top and bottom borders,
+  // plus 4 for total price summary.
+  int height = rows->len + 19;
+  int width = 0;
+  for (int i = 0; i < widths->len; i++) {
+    width += widths->data[i];
+  }
+  // This is to consider the width of vertical column separators and left
+  // and right borders.
+  width += headings->len + 1;
+  int ulCornerRow = (tHeight - height) / 2;
+  int ulCornerCol = (tWidth - width) / 2;
+  Cell ulCorner = {ulCornerRow, ulCornerCol};
+
+  title = newString("Facturar");
+  String *subtotalStr = newString("Subtotal │");
+  String *taxesStr = newString("Impuesto de venta 13% │");
+  String *totalStr = newString("Total │");
+  /*int initialRow = 0;*/
+  int keyPressed = 0;
+  do {
+    clear();
+    printRectangle(ulCorner, width, height);
+    mvprintw(ulCornerRow + 1, ulCornerCol + 1,
+             "Consecutivo: %.*s", invoiceId->len, invoiceId->text);
+    printLineD(ulCornerRow + 2, ulCornerCol + 1, width - 1, 1);
+    mvprintw(ulCornerRow + 3, ulCornerCol + 1,
+             "Nombre del local: %.*s", localName->len, localName->text);
+    printLineD(ulCornerRow + 4, ulCornerCol + 1, width - 1, 1);
+    mvprintw(ulCornerRow + 5, ulCornerCol + 1,
+             "Cédula jurídica: %.*s", legalId->len, legalId->text);
+    printLineD(ulCornerRow + 6, ulCornerCol + 1, width - 1, 1);
+    mvprintw(ulCornerRow + 7, ulCornerCol + 1,
+             "Teléfono: %.*s", phoneNum->len, phoneNum->text);
+    printLineD(ulCornerRow + 8, ulCornerCol + 1, width - 1, 1);
+    mvprintw(ulCornerRow + 9, ulCornerCol + 1,
+             "Fecha: %.*s", date->len, date->text);
+    printLineD(ulCornerRow + 10, ulCornerCol + 1, width - 1, 1);
+    mvprintw(ulCornerRow + 11, ulCornerCol + 1,
+             "Cliente: %.*s", client->len, client->text);
+    printLineD(ulCornerRow + 12, ulCornerCol + 1, width - 1, 1);
+    move(ulCornerRow + 13, ulCornerCol + 1);
+    printRow(headings, widths);
+    printLineD(ulCornerRow + 14, ulCornerCol + 1, width - 1, 1);
+
+    int detailsRow = ulCornerRow + 15;
+    for (int i = 0; i < rows->len; i++) {
+      PtrArray *row = rows->data[i];
+      move(detailsRow + i, ulCornerCol + 1);
+      printRow(row, widths);
+    }
+    int summaryRow = detailsRow + rows->len;
+    printLineD(summaryRow, ulCornerCol + 1, width - 1, 1);
+
+    int subtotal = 0;
+    int taxes = 0;
+    int total = 0;
+    // The + 1 is to take into account the column separator.
+    int c = ulCornerCol + width - widths->data[4] + 1;
+    int subtotalCol = c - subtotalStr->len;
+    int taxesCol = c - taxesStr->len;
+    int totalCol = c - totalStr->len;
+    mvprintw(summaryRow + 1, subtotalCol, "%.*s %i",
+             subtotalStr->len, subtotalStr->text, subtotal);
+    mvprintw(summaryRow + 2, taxesCol, "%.*s %i",
+             taxesStr->len, taxesStr->text, taxes);
+    mvprintw(summaryRow + 3, totalCol, "%.*s %i",
+             totalStr->len, totalStr->text, total);
+    keyPressed = getch();
+  } while (keyPressed != '\n');
+
+  deleteString(title);
+  deleteString(helpBar1);
+  deleteString(helpBar2);
+  deleteString(subtotalStr);
+  deleteString(taxesStr);
+  deleteString(totalStr);
+
+  deleteStringArray(headings);
+  deleteIntArray(widths);
+  for (int i = 0; i < rows->len; i++) {
+    deleteStringArray(rows->data[i]);
+  }
+  deletePtrArray(rows);
+  deleteString(invoiceId);
+  deleteString(localName);
+  deleteString(legalId);
+  deleteString(phoneNum);
+  deleteString(date);
+  deleteString(client);
 }
 
 // TO DO.

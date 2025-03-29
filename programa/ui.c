@@ -34,6 +34,53 @@ void printLine(Cell start, Cell end) {
   }
 }
 
+// Prints a straight line starting at cell (col, row) with the specified width.
+// Direction values are 0 for up, 1 for right, 2 for down and 3 for left.
+void printLineD(int row, int col, int len, int direction) {
+  int w = 0;
+  int h = 0;
+  getmaxyx(stdscr, h, w);
+
+  switch (direction) {
+  case 0:
+    if (row - len < 0) {
+      return;
+    }
+    for (int i = 0; i < len; i++) {
+      move(row - i, col);
+      printw("│");
+    }
+    break;
+  case 1:
+    if (col + len >= w) {
+      return;
+    }
+    for (int i = 0; i < len; i++) {
+      move(row, col + i);
+      printw("─");
+    }
+    break;
+  case 2:
+    if (row + len >= h) {
+      return;
+    }
+    for (int i = 0; i < len; i++) {
+      move(row + i, col);
+      printw("│");
+    }
+    break;
+  case 3:
+    if (col - len < 0) {
+      return;
+    }
+    for (int i = 0; i < len; i++) {
+      move(row, col - i);
+      printw("─");
+    }
+    break;
+  }
+}
+
 // Prints a rectangle using the specified cell as up-left corner.
 void printRectangle(Cell ulCorner, int width, int height) {
   Cell urCorner = {ulCorner.row, ulCorner.col + width};
@@ -233,7 +280,7 @@ void printRow(PtrArray *row, IntArray *cellWidths) {
 }
 
 // Shows a scrollable list. Assumes that the headings and each row have the same
-// length. columnWidths contains the width of each collumn from left to right.
+// length. columnWidths contains the width of each column from left to right.
 // Returns numVisibleRows for validation purposes in caller function.
 int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
                        IntArray *columnWidths, int initialRow) {
