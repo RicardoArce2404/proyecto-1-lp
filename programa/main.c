@@ -456,9 +456,9 @@ void editQuotation() {
 }
 
 void makeInvoice() {
-  int tWidth = 0;
+  //int tWidth = 0;
   int tHeight = 0;
-  getmaxyx(stdscr, tHeight, tWidth);
+  //getmaxyx(stdscr, tHeight, tWidth);
   clear();
   String *title = newString("Ingrese el número de cotización");
   String *input = showInput(title, tHeight / 2, 0);
@@ -614,10 +614,6 @@ void makeInvoice() {
 }
 
 // TO DO.
-void LoadInventory() {
-}
-
-// TO DO.
 void queryInvoice() {
 }
 
@@ -647,10 +643,10 @@ void adminOpts() {
         registerProduct(conn);
         break;
       case 2:
-        LoadInventory();
+        deleteProduct(conn);
         break;
       case 3:
-        queryInvoice();
+        LoadInventory(conn);
         break;
       case 4:
         statistics();

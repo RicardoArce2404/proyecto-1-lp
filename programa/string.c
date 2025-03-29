@@ -76,12 +76,23 @@ int getVisualLen(String *str) {
 }
 
 int isNumber(String *str) {
+  if (!str || !str->text) return 0;
+  
+  int hasDecimal = 0;
   for (int i = 0; i < str->len; i++) {
-    int letterValue = (int)(str->text[i]);
-    // In ASCII, numeric characters are between 48 and 57.
-    if (letterValue < 48 || letterValue > 57) {
-      return 0;
-    }
+      // Permitir signo negativo solo al inicio
+      if (i == 0 && str->text[i] == '-') {
+          continue;
+      }
+      // Permitir un solo punto decimal
+      if (str->text[i] == '.') {
+          if (hasDecimal) return 0; // Más de un punto
+          hasDecimal = 1;
+          continue;
+      }
+      if (str->text[i] < '0' || str->text[i] > '9') {
+          return 0;
+      }
   }
   return 1;
 }
