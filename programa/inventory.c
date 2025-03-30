@@ -95,7 +95,7 @@ String *readStringFromUI(String *prompt, int row) {
 void showProcessingErrors(PtrArray *errors) {
     if (!errors || errors->len == 0) {
         String *msg = newString("No hay errores para mostrar");
-        showInput(msg, 10, 0);
+        showAlert(NULL, msg, 10, 0);
         deleteString(msg);
         return;
     }
@@ -191,7 +191,7 @@ void showProcessingErrors(PtrArray *errors) {
 void showSuccessfulProducts(PtrArray *products) {
     if (!products || products->len == 0) {
         String *msg = newString("No hay productos exitosos para mostrar");
-        showInput(msg, 10, 0);
+        showAlert(NULL, msg, 10, 0);
         deleteString(msg);
         return;
     }
@@ -297,7 +297,7 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     PtrArray *csvLines = readCsv(filePath);
     if (!csvLines || csvLines->len == 0) {
         String *msg = newString("Error: Archivo vacío o formato inválido");
-        showInput(msg, 10, 1);
+        showAlert(NULL, msg, 10, 1);
         deleteString(msg);
         if (csvLines) deletePtrArray(csvLines);
         return;
@@ -482,7 +482,7 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
         
         // Esperar confirmación
         String *continueMsg = newString("Presione Enter para continuar");
-        showInput(continueMsg, getmaxy(stdscr) - 2, 0);
+        showAlert(NULL, continueMsg, getmaxy(stdscr) - 2, 0);
         deleteString(continueMsg);
 
         // Liberar memoria
@@ -504,7 +504,7 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
              totalRecords, failedRecords);
     
     String *summary = newString(summaryText);
-    showInput(summary, 10, failedRecords > 0 ? 1 : 0);
+    showAlert(NULL, summary, 10, failedRecords > 0 ? 1 : 0);
     deleteString(summary);
 
     // Mostrar errores si los hay
@@ -515,9 +515,6 @@ void loadFamiliesFromFile(MYSQL *conn, String *filePath, PtrArray *families) {
     // Liberar memoria
     for (int i = 0; i < errorFamilies->len; i++) {
         freeProcessingError(errorFamilies->data[i]);
-    }
-    for (int i = 0; i < errorFamilies->len; i++) {
-      freeFamily(errorFamilies->data[i]);
     }
     deletePtrArray(errorFamilies);
     for (int i = 0; i < successfulFamilies->len; i++) {
@@ -538,7 +535,7 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
     PtrArray *csvLines = readCsv(filePath);
     if (!csvLines || csvLines->len == 0) {
         String *msg = newString("Error: Archivo vacío o formato inválido");
-        showInput(msg, 10, 1);
+        showAlert(NULL, msg, 10, 1);
         deleteString(msg);
         if (csvLines) deletePtrArray(csvLines);
         return;
@@ -760,7 +757,7 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
     }
 
     String *summary = newString(summaryText);
-    showInput(summary, 10, failedRecords > 0 ? 1 : 0);
+    showAlert(NULL, summary, 10, failedRecords > 0 ? 1 : 0);
     deleteString(summary);
 
     if (failedRecords > 0) {
@@ -772,6 +769,9 @@ void loadProductsFromFile(MYSQL *conn, String *filePath, PtrArray *products) {
         freeProcessingError(errorProducts->data[i]);
     }
     deletePtrArray(errorProducts);
+    for (int i = 0; i < successfulProducts->len; i++) {
+      freeProduct(successfulProducts->data[i]);
+    }
     deletePtrArray(successfulProducts);
 
     for (int i = 0; i < csvLines->len; i++) {
@@ -818,7 +818,7 @@ void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpda
         
         // Esperar confirmación
         String *continueMsg = newString("Presione Enter para continuar");
-        showInput(continueMsg, getmaxy(stdscr) - 2, 0);
+        showAlert(NULL, continueMsg, getmaxy(stdscr) - 2, 0);
         deleteString(continueMsg);
 
         // Liberar memoria
@@ -920,7 +920,7 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
     PtrArray *csvLines = readCsv(filePath);
     if (!csvLines || csvLines->len == 0) {
         String *msg = newString("Error: Archivo vacío o formato inválido");
-        showInput(msg, 10, 1);
+        showAlert(NULL, msg, 10, 1);
         deleteString(msg);
         if (csvLines) deletePtrArray(csvLines);
         return;
@@ -1128,7 +1128,7 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
     }
 
     String *summary = newString(summaryText);
-    showInput(summary, 10, failedRecords > 0 ? 1 : 0);
+    showAlert(NULL, summary, 10, failedRecords > 0 ? 1 : 0);
     deleteString(summary);
 
     // Mostrar resultados
@@ -1237,7 +1237,7 @@ void showProductsTable(MYSQL *conn, int row) {
     
     if (mysql_query(conn, query)) {
         String *errorMsg = newString("Error al consultar productos");
-        showInput(errorMsg, row, 1);
+        showAlert(NULL, errorMsg, row, 1);
         deleteString(errorMsg);
         return;
     }
@@ -1245,7 +1245,7 @@ void showProductsTable(MYSQL *conn, int row) {
     MYSQL_RES *result = mysql_store_result(conn);
     if (!result) {
         String *errorMsg = newString("Error al obtener resultados");
-        showInput(errorMsg, row, 1);
+        showAlert(NULL, errorMsg, row, 1);
         deleteString(errorMsg);
         return;
     }
@@ -1347,7 +1347,7 @@ void deleteProduct(MYSQL *conn) {
     // Validar longitud del ID antes de continuar
     if (productId->len > 10) { // Asumiendo que los IDs no exceden 10 caracteres
         String *errorMsg = newString("Error: ID demasiado largo (max 10 chars)");
-        showInput(errorMsg, input_row, 1);
+        showAlert(NULL, errorMsg, input_row, 1);
         deleteString(errorMsg);
         deleteString(productId);
         return;
@@ -1378,7 +1378,7 @@ void deleteProduct(MYSQL *conn) {
     MYSQL_STMT *stmt = mysql_stmt_init(conn);
     if (!stmt) {
         String *errorMsg = newString("Error al inicializar statement");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         deleteString(productId);
         return;
@@ -1387,7 +1387,7 @@ void deleteProduct(MYSQL *conn) {
     const char *query = "CALL EliminarProducto(?, ?)";
     if (mysql_stmt_prepare(stmt, query, strlen(query))) {
         String *errorMsg = newString("Error al preparar statement");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         mysql_stmt_close(stmt);
         deleteString(productId);
@@ -1414,7 +1414,7 @@ void deleteProduct(MYSQL *conn) {
 
     if (mysql_stmt_bind_param(stmt, params)) {
         String *errorMsg = newString("Error al bindear parámetros");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         mysql_stmt_close(stmt);
         deleteString(productId);
@@ -1423,7 +1423,7 @@ void deleteProduct(MYSQL *conn) {
 
     if (mysql_stmt_execute(stmt)) {
         String *errorMsg = newString("Error al ejecutar procedimiento");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         mysql_stmt_close(stmt);
         deleteString(productId);
@@ -1440,7 +1440,7 @@ void deleteProduct(MYSQL *conn) {
 
     if (mysql_stmt_bind_result(stmt, &out_param)) {
         String *errorMsg = newString("Error al vincular parámetro de salida");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         mysql_stmt_close(stmt);
         deleteString(productId);
@@ -1449,7 +1449,7 @@ void deleteProduct(MYSQL *conn) {
 
     if (mysql_stmt_fetch(stmt)) {
         String *errorMsg = newString("Error al obtener resultado");
-        showInput(errorMsg, confirm_row, 1);
+        showAlert(NULL, errorMsg, confirm_row, 1);
         deleteString(errorMsg);
         mysql_stmt_close(stmt);
         deleteString(productId);
@@ -1493,7 +1493,7 @@ void deleteProduct(MYSQL *conn) {
     
     String *continueMsg = newString("Presione cualquier tecla para continuar");
     if (continueMsg) {
-        showInput(continueMsg, (maxy > 1) ? (maxy - 1) : 1, 0);
+        showAlert(NULL, continueMsg, (maxy > 1) ? (maxy - 1) : 1, 0);
         deleteString(continueMsg);
     }
 }

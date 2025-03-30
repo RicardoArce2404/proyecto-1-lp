@@ -25,6 +25,9 @@ void freeFile(File *ptr) {
 // as bytes were read (just to avoid wasting memory).
 File *readFile(char *filename) {
   FILE *file = fopen(filename, "rb");
+  if (!file) {
+    return NULL;
+  }
   int max = 1073741824; // Number of bytes in a gigabyte.
   int capacity = 16;    // The initial capacity is 16 bytes.
   char *content = (char *)malloc(capacity);
@@ -58,6 +61,9 @@ File *readFileStr(String *filename) {
   memcpy(buffer, filename->text, filename->len);
   buffer[filename->len] = '\0';
   FILE *file = fopen(buffer, "rb");
+  if (!file) {
+    return NULL;
+  }
   free(buffer);
   int max = 1073741824; // Number of bytes in a gigabyte.
   int capacity = 16;    // The initial capacity is 16 bytes.
@@ -94,6 +100,9 @@ File *readFileStr(String *filename) {
 // | example,file. |
 PtrArray *readCsv(String *filename) {
   File *file = readFileStr(filename);
+  if (!file) {
+    return NULL;
+  }
   char *content = file->content;
   PtrArray *result = newPtrArray();
   PtrArray *line = newPtrArray();

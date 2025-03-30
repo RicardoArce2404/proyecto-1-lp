@@ -213,7 +213,9 @@ void showAlert(String *title, String *msg, int row, int isError) {
   }
 
   move(ulCornerRow, ulCornerCol);
-  printCentered(title, width);
+  if (title) {
+    printCentered(title, width);
+  }
   move(row, ulCornerCol + 1);
   printw("%.*s...", msg->len, msg->text);
   move(tHeight - 1, 0);
