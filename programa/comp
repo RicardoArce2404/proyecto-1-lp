@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 echo "Compiling"
-gcc main.c -o main -lncursesw -Wall -Wextra -Werror -pedantic -g -fsanitize=address -lmysqlclient
+gcc main.c -o main -lncursesw -lm -Wall -Wextra -Werror -pedantic -g -fsanitize=address -lmysqlclient

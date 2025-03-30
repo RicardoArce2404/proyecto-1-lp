@@ -1,7 +1,10 @@
 #ifndef STRING
 #define STRING
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h> // This is the built-in string.h, only needed for memcpy.
+#include <math.h>
+#include <ncurses.h>
 
 typedef struct String {
   char *text;
@@ -51,6 +54,36 @@ String *newStringN(char *originalString, int n) {
     str->text = text;
     str->len = n;
     return str;
+}
+
+// Creates a String from an int.
+String *newStringI(int i) {
+  int len = 0;
+  int j = i;
+  while (j > 0) {
+    j /= 10;
+    len++;
+  }
+  if (i < 0) { // One more space for the minus sign.
+    len++;
+  }
+  char *buffer = malloc(sizeof(char) * (len + 1));
+  sprintf(buffer, "%i", i);
+  buffer[len] = '\0';
+  String *s = newString(buffer);
+  free(buffer);
+  return s;
+}
+
+// Creates a String from a double.
+String *newStringD(double d) {
+  int len = 100;
+  char *buffer = malloc(sizeof(char) * (len + 1));
+  sprintf(buffer, "%.1f", d);
+  buffer[len] = '\0';
+  String *s = newString(buffer);
+  free(buffer);
+  return s;
 }
 
 void deleteString(String *ptr) {
@@ -104,6 +137,38 @@ int toInt(String *str) {
   int value = atoi(buffer);
   free(buffer);
   return value;
+}
+
+double toDouble(String *str) {
+  char *buffer = malloc(str->len + 1);
+  memcpy(buffer, str->text, str->len);
+  buffer[str->len] = '\0';
+  int value = atof(buffer);
+  free(buffer);
+  return value;
+}
+
+// Returns 0 if the string are different and 1 if are equal.
+int compareStrings(String *s1, String *s2) {
+  if (s1->len != s2->len) {
+    return 0;
+  }
+  if (memcmp(s1->text, s2->text, s1->len) == 0) {
+    return 1;
+  }
+  return 0;
+}
+
+// Compares a String with a buffer of chars. Assumes null-terminated buffer.
+int compareStringToBuffer(String *s, char *buf) {
+  int bLen = strlen(buf);
+  if (bLen != s->len) {
+    return 0;
+  }
+  if (memcmp(s->text, buf, bLen) == 0) {
+    return 1;
+  }
+  return 0;
 }
 
 #endif

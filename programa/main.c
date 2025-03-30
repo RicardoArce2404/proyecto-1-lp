@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #define _XOPEN_SOURCE 700
 #include "array.c"
 #include "filehandling.c"
@@ -23,54 +24,108 @@ void catalogQuery() {
   ptrArrayAppend(newString("Stock"), headings);
 
   IntArray *widths = newIntArray();
-  intArrayAppend(6, widths);
+  intArrayAppend(10, widths);
   intArrayAppend(20, widths);
   intArrayAppend(20, widths);
-  intArrayAppend(8, widths);
+  intArrayAppend(15, widths);
   intArrayAppend(6, widths);
 
-  /*PtrArray *families = newPtrArray();  // Stores families.*/
 
-  /*if (mysql_query(conn, "SELECT * FROM Familia")) {*/
-  /*  printw("Error al consultar familias: %s\n", mysql_error(conn));*/
-  /*  refresh();*/
-  /*  getch();*/
-  /*  return;*/
-  /*}*/
-  /**/
-  /*MYSQL_RES *familyResult = mysql_store_result(conn);*/
-  /*  if (!familyResult) {*/
-  /*      printw("Error al obtener resultados de familias\n");*/
-  /*      refresh();*/
-  /*      getch();*/
-  /*      return;*/
-  /*  }*/
-  /**/
-  /*MYSQL_ROW familyRow;*/
-  /*  while ((familyRow = mysql_fetch_row(familyResult))) {*/
-  /*      int *idFam = familyRow[0];*/
-  /*      String *familyStr = newString(familyRow[1]); // Descripción de familia*/
-  /*      ptrArrayAppend(familyStr, families); //----------------------------------------------------------------Aqui quede, falta el struct de familia y agregar productos*/
-  /*  }*/
-  /*  mysql_free_result(familyResult);*/
+  if (mysql_query(conn, "SELECT * FROM Familia")) {
+    printw("Error al consultar familias: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
 
-  PtrArray *row1 = newPtrArray();
-  ptrArrayAppend(newString("1"), row1);
-  ptrArrayAppend(newString("Atún Suli"), row1);
-  ptrArrayAppend(newString("Enlatados"), row1);
-  ptrArrayAppend(newString("1000"), row1);
-  ptrArrayAppend(newString("20"), row1);
+  MYSQL_RES *familyResult = mysql_store_result(conn);
+  if (!familyResult) {
+    printw("Error al obtener resultados de familias\n");
+    refresh();
+    getch();
+    return;
+  }
 
-  PtrArray *row2 = newPtrArray();
-  ptrArrayAppend(newString("2"), row2);
-  ptrArrayAppend(newString("Arroz Suli"), row2);
-  ptrArrayAppend(newString("Granos"), row2);
-  ptrArrayAppend(newString("1000"), row2);
-  ptrArrayAppend(newString("20"), row2);
+  MYSQL_ROW row;
+  PtrArray *families = newPtrArray();  // Stores families.
+  while ((row = mysql_fetch_row(familyResult))) {
+    String *id = newString(row[0]);
+    String *desc = newString(row[1]);
+    Family *family = malloc(sizeof(Family));
+    if (!id || !desc || !family) {
+      printw("Error al procesar los datos de familias\n");
+      refresh();
+      getch();
+      return;
+    }
+    family->id = id;
+    family->description = desc;
+    ptrArrayAppend(family, families);
+  }
+  mysql_free_result(familyResult);
 
+  if (mysql_query(conn, "SELECT * FROM Producto")) {
+    printw("Error al consultar productos: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
+
+  MYSQL_RES *productResult = mysql_store_result(conn);
+  if (!productResult) {
+    printw("Error al obtener resultados de productos\n");
+    refresh();
+    getch();
+    return;
+  }
+
+  PtrArray *products = newPtrArray();  // Stores products.
+  while ((row = mysql_fetch_row(productResult))) {
+    String *id = newString(row[0]);
+    String *desc = newString(row[1]);
+    String *fDesc = NULL;
+    for (int i = 0; i < families->len; i++) {
+      Family *f = families->data[i];
+      String *fId = f->id;
+      if (compareStringToBuffer(fId, row[5])) {
+        fDesc = newStringN(f->description->text, f->description->len);
+      }
+    }
+    Product *product = malloc(sizeof(Product));
+    if (!id || !desc || !product) {
+      printw("Error al procesar los datos de productos\n");
+      refresh();
+      getch();
+      return;
+    }
+    product->id = id;
+    product->description = desc;
+    product->family_desc = fDesc;
+    sscanf(row[3], "%f", &(product->cost));
+    sscanf(row[4], "%f", &(product->price));
+    sscanf(row[2], "%i", &(product->stock));
+    ptrArrayAppend(product, products);
+
+  }
+  mysql_free_result(productResult);
+ 
   PtrArray *rows = newPtrArray(); // Stores products.
-  ptrArrayAppend(row1, rows);
-  ptrArrayAppend(row2, rows);
+  for (int i = 0; i < products->len; i++) {
+    Product *p = products->data[i];
+    PtrArray *row = newPtrArray();
+    ptrArrayAppend(newStringN(p->id->text, p->id->len), row);
+    ptrArrayAppend(newStringN(p->description->text, p->description->len), row);
+    ptrArrayAppend(newStringN(p->family_desc->text, p->family_desc->len), row);
+    ptrArrayAppend(newStringD(p->cost), row);
+    ptrArrayAppend(newStringI(p->stock), row);
+    ptrArrayAppend(row, rows);
+  }
+  /*PtrArray *row1 = newPtrArray();*/
+  /*ptrArrayAppend(newString("1"), row1);*/
+  /*ptrArrayAppend(newString("Atún Suli"), row1);*/
+  /*ptrArrayAppend(newString("Enlatados"), row1);*/
+  /*ptrArrayAppend(newString("1000"), row1);*/
+  /*ptrArrayAppend(newString("20"), row1);*/
   PtrArray *filteredRows = newPtrArray();
   for (int i = 0; i < rows->len; i++) {
     ptrArrayAppend(rows->data[i], filteredRows);
@@ -134,10 +189,18 @@ void catalogQuery() {
     deleteStringArray(rows->data[i]);
   }
   deletePtrArray(rows);
+  for (int i = 0; i < products->len; i++) {
+    freeProduct(products->data[i]);
+  }
+  deletePtrArray(products);
+  for (int i = 0; i < families->len; i++) {
+    freeFamily(families->data[i]);
+  }
+  deletePtrArray(families);
   deletePtrArray(filteredRows);
 }
 
-int showCatalog() {
+String *showCatalog() {
   PtrArray *headings = newPtrArray();
   ptrArrayAppend(newString("ID"), headings);
   ptrArrayAppend(newString("Nombre"), headings);
@@ -146,29 +209,101 @@ int showCatalog() {
   ptrArrayAppend(newString("Stock"), headings);
 
   IntArray *widths = newIntArray();
+  intArrayAppend(10, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(20, widths);
+  intArrayAppend(15, widths);
   intArrayAppend(6, widths);
-  intArrayAppend(20, widths);
-  intArrayAppend(20, widths);
-  intArrayAppend(8, widths);
-  intArrayAppend(5, widths);
 
-  PtrArray *row1 = newPtrArray();
-  ptrArrayAppend(newString("1"), row1);
-  ptrArrayAppend(newString("Atún Suli"), row1);
-  ptrArrayAppend(newString("Enlatados"), row1);
-  ptrArrayAppend(newString("1000"), row1);
-  ptrArrayAppend(newString("20"), row1);
+  if (mysql_query(conn, "SELECT * FROM Familia")) {
+    printw("Error al consultar familias: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return NULL;
+  }
 
-  PtrArray *row2 = newPtrArray();
-  ptrArrayAppend(newString("2"), row2);
-  ptrArrayAppend(newString("Arroz Suli"), row2);
-  ptrArrayAppend(newString("Granos"), row2);
-  ptrArrayAppend(newString("1000"), row2);
-  ptrArrayAppend(newString("20"), row2);
+  MYSQL_RES *familyResult = mysql_store_result(conn);
+  if (!familyResult) {
+    printw("Error al obtener resultados de familias\n");
+    refresh();
+    getch();
+    return NULL;
+  }
 
+  MYSQL_ROW row;
+  PtrArray *families = newPtrArray();  // Stores families.
+  while ((row = mysql_fetch_row(familyResult))) {
+    String *id = newString(row[0]);
+    String *desc = newString(row[1]);
+    Family *family = malloc(sizeof(Family));
+    if (!id || !desc || !family) {
+      printw("Error al procesar los datos de familias\n");
+      refresh();
+      getch();
+      return NULL;
+    }
+    family->id = id;
+    family->description = desc;
+    ptrArrayAppend(family, families);
+  }
+  mysql_free_result(familyResult);
+
+  if (mysql_query(conn, "SELECT * FROM Producto")) {
+    printw("Error al consultar productos: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return NULL;
+  }
+
+  MYSQL_RES *productResult = mysql_store_result(conn);
+  if (!productResult) {
+    printw("Error al obtener resultados de productos\n");
+    refresh();
+    getch();
+    return NULL;
+  }
+
+  PtrArray *products = newPtrArray();  // Stores products.
+  while ((row = mysql_fetch_row(productResult))) {
+    String *id = newString(row[0]);
+    String *desc = newString(row[1]);
+    String *fDesc = NULL;
+    for (int i = 0; i < families->len; i++) {
+      Family *f = families->data[i];
+      String *fId = f->id;
+      if (compareStringToBuffer(fId, row[5])) {
+        fDesc = newStringN(f->description->text, f->description->len);
+      }
+    }
+    Product *product = malloc(sizeof(Product));
+    if (!id || !desc || !product) {
+      printw("Error al procesar los datos de productos\n");
+      refresh();
+      getch();
+      return NULL;
+    }
+    product->id = id;
+    product->description = desc;
+    product->family_desc = fDesc;
+    sscanf(row[3], "%f", &(product->cost));
+    sscanf(row[4], "%f", &(product->price));
+    sscanf(row[2], "%i", &(product->stock));
+    ptrArrayAppend(product, products);
+
+  }
+  mysql_free_result(productResult);
+ 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
-  ptrArrayAppend(row1, rows);
-  ptrArrayAppend(row2, rows);
+  for (int i = 0; i < products->len; i++) {
+    Product *p = products->data[i];
+    PtrArray *row = newPtrArray();
+    ptrArrayAppend(newStringN(p->id->text, p->id->len), row);
+    ptrArrayAppend(newStringN(p->description->text, p->description->len), row);
+    ptrArrayAppend(newStringN(p->family_desc->text, p->family_desc->len), row);
+    ptrArrayAppend(newStringD(p->cost), row);
+    ptrArrayAppend(newStringI(p->stock), row);
+    ptrArrayAppend(row, rows);
+  }
   PtrArray *filteredRows = newPtrArray();
   for (int i = 0; i < rows->len; i++) {
     ptrArrayAppend(rows->data[i], filteredRows);
@@ -228,21 +363,27 @@ int showCatalog() {
 
   title = newString("Ingrese el ID a seleccionar");
   String *input = showInput(title, 2, 0);
-  while (input == NULL && !isNumber(input)) {
+  while (input == NULL) {
     deleteString(input);
     input = showInput(title, 2, 1);
   }
   deleteString(title);
-  int id = toInt(input);
-  deleteString(input);
   deleteStringArray(headings);
   deleteIntArray(widths);
   for (int i = 0; i < rows->len; i++) {
     deleteStringArray(rows->data[i]);
   }
   deletePtrArray(rows);
+  for (int i = 0; i < products->len; i++) {
+    freeProduct(products->data[i]);
+  }
+  deletePtrArray(products);
+  for (int i = 0; i < families->len; i++) {
+    freeFamily(families->data[i]);
+  }
+  deletePtrArray(families);
   deletePtrArray(filteredRows);
-  return id;
+  return input;
 }
 
 void makeQuotation() {
@@ -250,40 +391,105 @@ void makeQuotation() {
   ptrArrayAppend(newString("#"), headings);
   ptrArrayAppend(newString("Nombre"), headings);
   ptrArrayAppend(newString("Descripción"), headings);
+  ptrArrayAppend(newString("Cantidad"), headings);
   ptrArrayAppend(newString("Precio"), headings);
+  ptrArrayAppend(newString("Total"), headings);
 
   IntArray *widths = newIntArray();
   intArrayAppend(3, widths);
   intArrayAppend(20, widths);
   intArrayAppend(40, widths);
-  intArrayAppend(20, widths);
-
-  PtrArray *row1 = newPtrArray();
-  ptrArrayAppend(newString("1"), row1);
-  ptrArrayAppend(newString("1234"), row1);
-  ptrArrayAppend(newString("abcde"), row1);
-  ptrArrayAppend(newString("abcde"), row1);
+  intArrayAppend(10, widths);
+  intArrayAppend(10, widths);
+  intArrayAppend(15, widths);
 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
-  ptrArrayAppend(row1, rows);
 
   String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
   String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -  |  Guardar: <Enter>");
   int tWidth = 0;
   int tHeight = 0;
   getmaxyx(stdscr, tHeight, tWidth);
+  int height = 7;
+  /*const int MAX_ROWS = tHeight - 15;*/
+  const int MAX_ROWS = 5;
+  if (rows->len > MAX_ROWS) {
+    height += MAX_ROWS;
+  } else {
+    height += rows->len;
+  }
+  int width = 0;
+  for (int i = 0; i < widths->len; i++) {
+    width += widths->data[i];
+  }
+  width += headings->len + 1;
 
+  int ulCornerRow = (tHeight - height) / 2;
+  int ulCornerCol = (tWidth - width) / 2;
+  Cell ulCorner = {ulCornerRow, ulCornerCol};
+
+  String *subtotalStr = newString("Subtotal │");
+  String *taxesStr = newString("Impuesto de venta 13% │");
+  String *totalStr = newString("Total │");
   String *title = newString("Crear cotización");
   int initialRow = 0;
   int keyPressed = 0;
+  int numVisibleRows = height - 7;
   do {
-    int numVisibleRows = showScrollableList(title, headings, rows, widths, initialRow);
-    move(tHeight - 2, 1);
-    printCentered(helpBar1, tWidth);
-    move(tHeight - 1, 1);
-    printCentered(helpBar2, tWidth);
+    height = 7;
+    if (rows->len > MAX_ROWS) {
+      height += MAX_ROWS;
+    } else {
+      height += rows->len;
+    }
+    numVisibleRows = height - 7;
+    ulCornerRow = (tHeight - height) / 2;
+    ulCornerCol = (tWidth - width) / 2;
+    ulCorner = (Cell){ulCornerRow, ulCornerCol};
 
+    clear();
+    printRectangle(ulCorner, width, height);
+    move(ulCornerRow + 1, ulCornerCol + 1);
+    printRow(headings, widths);
+    printLineD(ulCornerRow + 2, ulCornerCol + 1, width - 1, 1);
+
+    int detailsRow = ulCornerRow + 3;
+    for (int i = 0; i < numVisibleRows; i++) {
+      PtrArray *row = rows->data[initialRow + i];
+      String *num = newStringI(i + 1);
+      deleteString(row->data[0]);
+      row->data[0] = num;
+      move(detailsRow + i, ulCornerCol + 1);
+      printRow(row, widths);
+    }
+    int summaryRow = detailsRow + rows->len;
+    printLineD(summaryRow, ulCornerCol + 1, width - 1, 1);
+
+    double subtotal = 0;
+    for (int i = 0; i < rows->len; i++) {
+      PtrArray *row = rows->data[i];
+      String *totalStr = row->data[5];
+      subtotal += toDouble(totalStr);
+    }
+    double taxes = subtotal * 0.13;
+    double total = subtotal + taxes;
+    // The + 1 is to take into account the column separator.
+    int c = ulCornerCol + width - widths->data[5] + 1;
+    int subtotalCol = c - subtotalStr->len;
+    int taxesCol = c - taxesStr->len;
+    int totalCol = c - totalStr->len;
+    mvprintw(summaryRow + 1, subtotalCol, "%.*s %.1f",
+             subtotalStr->len, subtotalStr->text, subtotal);
+    mvprintw(summaryRow + 2, taxesCol, "%.*s %.1f",
+             taxesStr->len, taxesStr->text, taxes);
+    mvprintw(summaryRow + 3, totalCol, "%.*s %.1f",
+             totalStr->len, totalStr->text, total);
+    move(tHeight - 3, ulCornerCol);
+    printCentered(helpBar1, width);
+    move(tHeight - 2, ulCornerCol);
+    printCentered(helpBar2, width);
     keyPressed = getch();
+
     switch (keyPressed) {
     case KEY_UP:
       if (initialRow > 0)
@@ -294,15 +500,51 @@ void makeQuotation() {
         initialRow++;
       break;
     case '+': {
-      int id = showCatalog();
-      id++;
-      // TO DO: Query DB to get product info using product's ID.
+      String *id = showCatalog();
+      char query[256] = {0};
+      sprintf(query,
+              "SELECT * FROM Producto AS p JOIN Familia as f WHERE p.id_producto = \"%.*s\" && p.id_familia = f.id_familia",
+              id->len,
+              id->text);
+      deleteString(id);
+      if (mysql_query(conn, query)) {
+        printw("Error al consultar producto: %s\n", mysql_error(conn));
+        refresh();
+        getch();
+        return;
+      }
+      MYSQL_RES *productResult = mysql_store_result(conn);
+      if (!productResult) {
+        printw("Error al obtener resultados de producto\n");
+        refresh();
+        getch();
+        return;
+      }
+      int numRows = mysql_num_rows(productResult);
+      if (numRows == 0) {
+        mysql_free_result(productResult);
+        break;
+      }
+      clear();
+      String *title = newString("Ingrese la cantidad");
+      String *amountStr = showInput(title, 3, 0);
+      while (!amountStr || !isNumber(amountStr)) {
+        deleteString(amountStr);
+        amountStr = showInput(title, 3, 1);
+      }
+      deleteString(title);
+      int amount = toInt(amountStr);
+      
+      MYSQL_ROW row = mysql_fetch_row(productResult);
       PtrArray *newRow = newPtrArray();
-      ptrArrayAppend(newString("1"), newRow);
-      ptrArrayAppend(newString("1234"), newRow);
-      ptrArrayAppend(newString("abcde"), newRow);
-      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newStringI(rows->len + 1), newRow); // Index.
+      ptrArrayAppend(newString(row[1]), newRow); // Name.
+      ptrArrayAppend(newString(row[7]), newRow); // Family.
+      ptrArrayAppend(amountStr, newRow); // Amount.
+      ptrArrayAppend(newString(row[4]), newRow); // Price.
+      ptrArrayAppend(newStringD(amount * atof(row[4])), newRow); // Total.
       ptrArrayAppend(newRow, rows);
+      mysql_free_result(productResult);
       break;
     }
     case '-': {
@@ -326,9 +568,13 @@ void makeQuotation() {
     }
     }
   } while (keyPressed != '\n');
+
   deleteString(title);
   deleteString(helpBar1);
   deleteString(helpBar2);
+  deleteString(subtotalStr);
+  deleteString(taxesStr);
+  deleteString(totalStr);
 
   deleteStringArray(headings);
   deleteIntArray(widths);
@@ -405,14 +651,14 @@ void editQuotation() {
         initialRow++;
       break;
     case '+': {
-      int id = showCatalog();
-      for (int i = 0; i < rows->len; i++) {
-        PtrArray *row = rows->data[i];
-        if (toInt(row->data[0]) == id) {
-          // Logic to add new amount to existing amount.
-          break;
-        }
-      }
+      /*String *id = showCatalog();*/
+      /*for (int i = 0; i < rows->len; i++) {*/
+      /*  PtrArray *row = rows->data[i];*/
+      /*  if (toInt(row->data[0]) == id) {*/
+      /*    // Logic to add new amount to existing amount.*/
+      /*    break;*/
+      /*  }*/
+      /*}*/
       // TO DO: Query DB to get product info using product's ID.
       PtrArray *newRow = newPtrArray();
       ptrArrayAppend(newString("1"), newRow);
@@ -519,7 +765,7 @@ void makeInvoice() {
   intArrayAppend(20, widths);
   intArrayAppend(10, widths);
   intArrayAppend(10, widths);
-  intArrayAppend(10, widths);
+  intArrayAppend(15, widths);
 
   // The invoice header occupies 13 rows, plus 2 for top and bottom borders,
   // plus 4 for total price summary.

@@ -62,6 +62,7 @@ File *readFileStr(String *filename) {
   buffer[filename->len] = '\0';
   FILE *file = fopen(buffer, "rb");
   if (!file) {
+    free(buffer);
     return NULL;
   }
   free(buffer);
