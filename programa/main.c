@@ -11,6 +11,7 @@
 #include <ncurses.h>
 #include <string.h>
 #include <time.h>
+#include "invoice.c"
 
 MYSQL *conn;
 
@@ -613,9 +614,7 @@ void makeInvoice() {
   deleteString(client);
 }
 
-// TO DO.
-void queryInvoice() {
-}
+
 
 // TO DO.
 void statistics() {
@@ -637,7 +636,6 @@ void adminOpts() {
     switch (selectedOpt) {
       case 0:
         registerProductFamily(conn);
-        /*adminOpts();*/
         break;
       case 1:
         registerProduct(conn);
@@ -649,7 +647,7 @@ void adminOpts() {
         LoadInventory(conn);
         break;
       case 4:
-        queryInvoice();
+        queryInvoice(conn);
         break;
       case 5:
         statistics();

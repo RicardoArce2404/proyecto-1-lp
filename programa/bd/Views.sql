@@ -91,3 +91,51 @@ GROUP BY
 ORDER BY 
     monto_total DESC;
 
+-- Vista para resumen de facturas
+CREATE VIEW VistaResumenFacturas AS
+SELECT 
+    f.id_factura,
+    f.fecha,
+    f.hora,
+    SUM(dc.cantidad * p.precio) as subtotal,
+    SUM(dc.cantidad * p.precio) * 0.13 as impuesto,
+    SUM(dc.cantidad * p.precio) * 1.13 as total
+FROM Factura f
+JOIN Cotizacion c ON f.id_cotizacion = c.id_cotizacion
+JOIN DetalleCotizacion dc ON c.id_cotizacion = dc.id_cotizacion
+JOIN Producto p ON dc.id_producto = p.id_producto
+GROUP BY f.id_factura, f.fecha, f.hora;
+
+-- Vista para detalles de factura
+CREATE VIEW VistaDetallesFactura AS
+SELECT 
+    f.id_factura,
+    p.id_producto,
+    p.descripcion,
+    dc.cantidad,
+    p.precio as precio_unitario,
+    (dc.cantidad * p.precio) as subtotal
+FROM Factura f
+JOIN Cotizacion c ON f.id_cotizacion = c.id_cotizacion
+JOIN DetalleCotizacion dc ON c.id_cotizacion = dc.id_cotizacion
+JOIN Producto p ON dc.id_producto = p.id_producto;
+
+-- Vista para encabezado de factura
+CREATE VIEW VistaEncabezadoFactura AS
+SELECT 
+    f.id_factura,
+    f.fecha,
+    f.hora,
+    f.cliente,
+    e.nombre as nombre_empresa,
+    e.cedula_juridica,
+    e.telefono,
+    SUM(dc.cantidad * p.precio) as subtotal,
+    SUM(dc.cantidad * p.precio) * 0.13 as impuesto,
+    SUM(dc.cantidad * p.precio) * 1.13 as total
+FROM Factura f
+JOIN Cotizacion c ON f.id_cotizacion = c.id_cotizacion
+JOIN DetalleCotizacion dc ON c.id_cotizacion = dc.id_cotizacion
+JOIN Producto p ON dc.id_producto = p.id_producto
+CROSS JOIN Empresa e
+GROUP BY f.id_factura, f.fecha, f.hora, f.cliente, e.nombre, e.cedula_juridica, e.telefono;

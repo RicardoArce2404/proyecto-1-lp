@@ -37,10 +37,10 @@ DELIMITER ;
 DELIMITER //
 
 CREATE FUNCTION fn_PromedioCompra() 
-RETURNS DECIMAL(10,2)
+RETURNS FLOAT
 DETERMINISTIC
 BEGIN
-    DECLARE v_promedio DECIMAL(10,2);
+    DECLARE v_promedio FLOAT;
     
     SELECT AVG(total) INTO v_promedio
     FROM (
