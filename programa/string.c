@@ -111,6 +111,7 @@ int getVisualLen(String *str) {
 int isNumber(String *str) {
   if (!str || !str->text) return 0;
   
+  
   int hasDecimal = 0;
   for (int i = 0; i < str->len; i++) {
       // Permitir signo negativo solo al inicio

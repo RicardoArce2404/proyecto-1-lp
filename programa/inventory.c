@@ -861,13 +861,15 @@ void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpda
             switch(error->error_code) {
                 case 2: errorMsg = "Producto no encontrado"; break;
                 case 3: errorMsg = "Stock insuficiente para restar"; break;
-                case 4: errorMsg = "Operación no válida"; break;
-                case 5: errorMsg = "Cantidad no válida (debe ser > 0)"; break;
                 case -1: errorMsg = "Error de sistema: No se pudo inicializar statement"; break;
                 case -2: errorMsg = "Error de sistema: Fallo al preparar consulta"; break;
                 case -3: errorMsg = "Error de sistema: Fallo al bindear parámetros"; break;
                 case -4: errorMsg = "Error de sistema: Fallo al ejecutar procedimiento"; break;
                 case -5: errorMsg = "Formato inválido: Campos faltantes en el archivo"; break;
+                case -6: errorMsg = "Error de validación: Campos vacíos en el archivo"; break;
+                case -7: errorMsg = "Error de validación: Cantidad no válida"; break;
+                case -8: errorMsg = "Error de validación: Cantidad negativa no permitida"; break;
+                case -9: errorMsg = "Error de validación: ID de producto no válido"; break;
                 default: errorMsg = "Error desconocido"; break;
             }
             
@@ -914,7 +916,7 @@ void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpda
     }
 }
 
-void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
+void loadInventoryFromFile(MYSQL *conn, String *filePath) {
     if (!conn || !filePath) return;
 
     PtrArray *csvLines = readCsv(filePath);
@@ -958,7 +960,7 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
             continue;
         }
 
-        // Validación numérica
+        
         if (!isNumber(cantidadStr)) {
             InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
             error->id_producto = newStringN(id->text, id->len);
@@ -970,15 +972,6 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
         }
 
         int cantidad = atoi(cantidadStr->text);
-        if (cantidad <= 0) {
-            InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
-            error->id_producto = newStringN(id->text, id->len);
-            error->cantidad = cantidad;
-            error->error_code = 5;
-            ptrArrayAppend(error, errorUpdates);
-            failedRecords++;
-            continue;
-        }
 
         // Preparar llamada al procedimiento almacenado
         MYSQL_STMT *stmt = mysql_stmt_init(conn);
@@ -992,7 +985,7 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
             continue;
         }
 
-        const char *query = "CALL CargarInventario(?, ?, ?, ?)";
+        const char *query = "CALL CargarInventario(?, ?, ?)";
         if (mysql_stmt_prepare(stmt, query, strlen(query))) {
             InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
             error->id_producto = newStringN(id->text, id->len);
@@ -1005,42 +998,29 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
         }
 
         // Inicializar parámetros de forma segura
-        MYSQL_BIND params[4];
-        memset(params, 0, sizeof(params)); // Limpiar toda la estructura
+        MYSQL_BIND params[3];
+        memset(params, 0, sizeof(params));
 
         // Parámetro 1: ID del producto
-        unsigned long id_len = (unsigned long)id->len;  // Conversión explícita
+        unsigned long id_len = (unsigned long)id->len;
         params[0].buffer_type = MYSQL_TYPE_STRING;
         params[0].buffer = (char *)id->text;
         params[0].buffer_length = id_len;
-        params[0].length = &id_len;  // Usamos el unsigned long
+        params[0].length = &id_len;
 
-        // Parámetro 2: Cantidad (corregido)
+        // Parámetro 2: Cantidad (puede ser positiva o negativa)
         params[1].buffer_type = MYSQL_TYPE_LONG;
-        params[1].buffer = (char *)&cantidad;  // Conversión explícita a char*
-        params[1].is_unsigned = 0;  // Cambiado a 0 para permitir valores positivos y negativos
+        params[1].buffer = &cantidad;
+        params[1].is_unsigned = 0;
         params[1].is_null = 0;
         params[1].length = 0;
 
-        // Parámetro 3: Operación (SUMAR/RESTAR)
-        const char *operacion = isAddition ? "SUMAR" : "RESTAR";
-        unsigned long operacion_len = strlen(operacion);
-        params[2].buffer_type = MYSQL_TYPE_STRING;
-        params[2].buffer = (char *)operacion;
-        params[2].buffer_length = operacion_len;
-        params[2].length = &operacion_len;
-
-        params[2].buffer_type = MYSQL_TYPE_STRING;
-        params[2].buffer = (char *)operacion;
-        params[2].buffer_length = operacion_len;
-        params[2].length = &operacion_len;
-
-        // Parámetro 4: Resultado (salida)
+        // Parámetro 3: Resultado (salida)
         int resultado = 0;
-        params[3].buffer_type = MYSQL_TYPE_LONG;
-        params[3].buffer = &resultado;
-        params[3].is_unsigned = 0;
-        params[3].is_null = 0;
+        params[2].buffer_type = MYSQL_TYPE_LONG;
+        params[2].buffer = &resultado;
+        params[2].is_unsigned = 0;
+        params[2].is_null = 0;
 
         if (mysql_stmt_bind_param(stmt, params)) {
             InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
@@ -1094,6 +1074,21 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
             continue;
         }
 
+        // Interpretar códigos de resultado
+        String *errorMsg = NULL;
+        switch(resultado) {
+            case 1: // Éxito
+                break;
+            case 2:
+                errorMsg = newString("Producto no encontrado");
+                break;
+            case 3:
+                errorMsg = newString("Stock insuficiente para restar");
+                break;
+            default:
+                errorMsg = newString("Error desconocido");
+        }
+
         if (resultado != 1) {
             InventoryError *error = (InventoryError *)malloc(sizeof(InventoryError));
             error->id_producto = newStringN(id->text, id->len);
@@ -1106,9 +1101,9 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
             if (update) {
                 update->id_producto = newStringN(id->text, id->len);
                 update->cantidad = cantidad;
-                update->operacion = isAddition;
                 ptrArrayAppend(update, successfulUpdates);
             }
+            if (errorMsg) deleteString(errorMsg);
         }
 
         mysql_stmt_close(stmt);
@@ -1155,43 +1150,14 @@ void loadInventoryFromFile(MYSQL *conn, String *filePath, int isAddition) {
 void LoadInventory(MYSQL *conn) {
     clear();
     
-    // Crear opciones para el menú de carga de inventario
-    PtrArray *opts = newPtrArray();
-    ptrArrayAppend(newString("Sumar al inventario"), opts);
-    ptrArrayAppend(newString("Restar del inventario"), opts);
-    ptrArrayAppend(newString("Regresar"), opts);
-
-    int selectedOpt = 0;
-    while (selectedOpt != 2) { // 2 es la opción "Regresar"
-        selectedOpt = showMenu(opts);
-        
-        if (selectedOpt == 0) { // Sumar inventario
-            String *filePrompt = newString("Ingrese la ruta del archivo para SUMAR inventario:");
-            String *filePath = showInput(filePrompt, 10, 0);
-            deleteString(filePrompt);
-            
-            if (filePath) {
-                loadInventoryFromFile(conn, filePath, 1); // 1 para suma
-                deleteString(filePath);
-            }
-        } 
-        else if (selectedOpt == 1) { // Restar inventario
-            String *filePrompt = newString("Ingrese la ruta del archivo para RESTAR inventario:");
-            String *filePath = showInput(filePrompt, 10, 0);
-            deleteString(filePrompt);
-            
-            if (filePath) {
-                loadInventoryFromFile(conn, filePath, 0); // 0 para resta
-                deleteString(filePath);
-            }
-        }
-    }
+    String *filePrompt = newString("Ingrese la ruta del archivo para cargar inventario:");
+    String *filePath = showInput(filePrompt, 10, 0);
+    deleteString(filePrompt);
     
-    // Liberar memoria de las opciones del menú
-    for (int i = 0; i < opts->len; i++) {
-        deleteString((String *)opts->data[i]);
+    if (filePath) {
+        loadInventoryFromFile(conn, filePath);
+        deleteString(filePath);
     }
-    deletePtrArray(opts);
 }
 
 void registerProductFamily(MYSQL *conn) {
@@ -1229,7 +1195,7 @@ void registerProduct(MYSQL *conn) {
 }
 
 
-void showProductsTable(MYSQL *conn, int row) {
+int showProductsTable(MYSQL *conn, int row) {
     // Consultar todos los productos
     const char *query = "SELECT p.id_producto, p.descripcion, f.descripcion, p.costo, p.precio, p.stock "
                         "FROM Producto p JOIN Familia f ON p.id_familia = f.id_familia "
@@ -1239,7 +1205,7 @@ void showProductsTable(MYSQL *conn, int row) {
         String *errorMsg = newString("Error al consultar productos");
         showAlert(NULL, errorMsg, row, 1);
         deleteString(errorMsg);
-        return;
+        return 0;
     }
 
     MYSQL_RES *result = mysql_store_result(conn);
@@ -1247,7 +1213,7 @@ void showProductsTable(MYSQL *conn, int row) {
         String *errorMsg = newString("Error al obtener resultados");
         showAlert(NULL, errorMsg, row, 1);
         deleteString(errorMsg);
-        return;
+        return 0;
     }
 
     // Preparar encabezados
@@ -1305,6 +1271,10 @@ void showProductsTable(MYSQL *conn, int row) {
     }
     mysql_free_result(result);
 
+    if (rows->len==0){
+        return 0;
+    }
+
     // Mostrar la tabla
     String *title = newString("Listado de Productos");
     showScrollableList(title, headings, rows, widths, 0);
@@ -1319,6 +1289,7 @@ void showProductsTable(MYSQL *conn, int row) {
         deleteStringArray(row);
     }
     deletePtrArray(rows);
+    return 1;
 }
 
 // Función principal para eliminar producto
@@ -1326,15 +1297,23 @@ void deleteProduct(MYSQL *conn) {
     clear();
     
     // Mostrar tabla de productos en la parte superior
-    showProductsTable(conn, 0);
+    int opt=showProductsTable(conn, 0);
     
+    if (opt == 0){
+        String *msg= newString("No hay productos disponibles en la base de datos");
+        showAlert(NULL,msg, 3, 0);
+        deleteString(msg);
+        return;
+    }
     // Calcular posición segura para la entrada
     int maxy = getmaxy(stdscr);
     int input_row = (maxy > 3) ? (maxy - 3) : 1;
     
     // Pedir ID del producto a eliminar
     String *prompt = newString("Ingrese ID del producto a eliminar:");
-    if (!prompt) return;
+    if (!prompt){
+        return;
+    }
     
     String *productId = showInput(prompt, input_row, 0);
     deleteString(prompt);
@@ -1354,9 +1333,9 @@ void deleteProduct(MYSQL *conn) {
     }
 
     // Confirmar eliminación en posición segura
-    int confirm_row = (maxy > 1) ? (maxy - 1) : 1;
-    char confirmMsg[100];
-    snprintf(confirmMsg, sizeof(confirmMsg), "¿Eliminar producto %s? (S/N)", productId->text);
+    int confirm_row = (maxy > 1) ? (maxy - 2) : 1;
+    char confirmMsg[100]={0};
+    snprintf(confirmMsg, sizeof(confirmMsg), "¿Eliminar producto %.*s? (S/N)", productId->len, productId->text);
     
     String *confirmPrompt = newString(confirmMsg);
     if (!confirmPrompt) {
@@ -1400,8 +1379,9 @@ void deleteProduct(MYSQL *conn) {
 
     // Parámetro 1: ID del producto (con verificación de longitud)
     char id_buffer[11] = {0}; // 10 chars + null terminator
-    strncpy(id_buffer, productId->text, sizeof(id_buffer) - 1);
-    
+    strncpy(id_buffer, productId->text, productId->len);
+
+
     params[0].buffer_type = MYSQL_TYPE_STRING;
     params[0].buffer = id_buffer;
     params[0].buffer_length = strlen(id_buffer);
