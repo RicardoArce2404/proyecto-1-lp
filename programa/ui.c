@@ -217,10 +217,10 @@ void showAlert(String *title, String *msg, int row, int isError) {
     printCentered(title, width);
   }
   move(row, ulCornerCol + 1);
-  printw("%.*s...", msg->len, msg->text);
+  printw("%.*s", msg->len, msg->text);
   move(tHeight - 1, 0);
   String *helpBar = newString("Presione cualquier tecla para continuar.");
-  printCentered(msg, tWidth);
+  printCentered(helpBar, tWidth);
   deleteString(helpBar);
   getch();
 }
