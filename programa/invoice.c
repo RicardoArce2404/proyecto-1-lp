@@ -178,7 +178,6 @@ InvoiceFull *getInvoiceDetails(MYSQL *conn, int invoiceId) {
 
     MYSQL_ROW headerRow = mysql_fetch_row(headerRes);
 
-
     // Obtener información sobre los campos
     MYSQL_FIELD *fields = mysql_fetch_fields(headerRes);
 
@@ -223,7 +222,7 @@ InvoiceFull *getInvoiceDetails(MYSQL *conn, int invoiceId) {
             if (!detail) continue;
 
             // Asignación segura usando newStringN con longitud máxima del campo
-            detail->id_producto =newStringN(detailsRow[0], fields[0].max_length);
+            detail->id_producto = newStringN(detailsRow[0], fields[0].max_length);
             detail->descripcion = newStringN(detailsRow[1], fields[1].max_length);
             
             // Campos numéricos con validación
@@ -237,6 +236,114 @@ InvoiceFull *getInvoiceDetails(MYSQL *conn, int invoiceId) {
     }
 
     return invoice;
+}
+
+/**
+ * Muestra una factura completa con formato centrado, sin colores y mejor espaciado
+ * @param invoice Factura a mostrar
+ * @param showDetails Si es 1, muestra los detalles de productos
+ */
+void showInvoice(InvoiceFull *invoice, int showDetails) {
+    if (!invoice) return;
+
+    int tWidth = 0, tHeight = 0;
+    getmaxyx(stdscr, tHeight, tWidth);
+    
+    // Limpiar pantalla
+    clear();
+    
+    // --- Encabezado de la factura ---
+    // Título de la factura centrado
+    char invoiceTitle[50];
+    snprintf(invoiceTitle, sizeof(invoiceTitle), "FACTURA #%d", invoice->id);
+    mvprintw(3, (tWidth - strlen(invoiceTitle)) / 2, "%s", invoiceTitle);
+    
+    // Línea separadora
+    mvprintw(4, (tWidth - 40) / 2, "----------------------------------------");
+    
+    // Información de la empresa centrada
+    mvprintw(6, (tWidth - invoice->nombre_empresa->len) / 2, "%.*s", 
+            (int)invoice->nombre_empresa->len, invoice->nombre_empresa->text);
+    mvprintw(7, (tWidth - invoice->cedula_juridica->len - 8) / 2, "Cédula: %.*s", 
+            (int)invoice->cedula_juridica->len, invoice->cedula_juridica->text);
+    mvprintw(8, (tWidth - invoice->telefono->len - 5) / 2, "Tel: %.*s", 
+            (int)invoice->telefono->len, invoice->telefono->text);
+    
+    // Espacio entre secciones
+    mvprintw(9, (tWidth - 40) / 2, "----------------------------------------");
+    
+    // Información de fecha y cliente
+    char fechaHora[60];
+    snprintf(fechaHora, sizeof(fechaHora), "Fecha: %.*s  Hora: %.*s",
+            (int)invoice->fecha->len, invoice->fecha->text,
+            (int)invoice->hora->len, invoice->hora->text);
+    mvprintw(11, (tWidth - strlen(fechaHora)) / 2, "%s", fechaHora);
+    
+    char clienteStr[100];
+    snprintf(clienteStr, sizeof(clienteStr), "Cliente: %.*s",
+            (int)invoice->cliente->len, invoice->cliente->text);
+    mvprintw(12, (tWidth - strlen(clienteStr)) / 2, "%s", clienteStr);
+
+    // --- Detalles de productos ---
+    if (showDetails && invoice->detalles && invoice->detalles->len > 0) {
+        // Espacio antes de la tabla
+        mvprintw(14, (tWidth - 40) / 2, "----------------------------------------");
+        
+        // Encabezado de la tabla de productos centrado
+        char header[] = "ID Producto   Descripción               Cantidad   P. Unitario   Subtotal";
+        mvprintw(15, (tWidth - strlen(header)) / 2, "%s", header);
+        
+        // Línea separadora de la tabla
+        int headerLen = (int)strlen(header);
+        char separator[100];
+        memset(separator, '-', headerLen);
+        separator[headerLen] = '\0';
+        mvprintw(16, (tWidth - headerLen) / 2, "%s", separator);
+        
+        // Mostrar cada producto centrado
+        int currentRow = 17;
+        for (int i = 0; i < invoice->detalles->len && currentRow < tHeight - 8; i++) {
+            InvoiceDetail *detail = (InvoiceDetail *)invoice->detalles->data[i];
+            
+            // Limitar descripción a 25 caracteres
+            char desc[26] = {0};
+            strncpy(desc, detail->descripcion->text, 25);
+            
+            // Formatear línea de producto
+            char productLine[100];
+            snprintf(productLine, sizeof(productLine), "%-12.*s %-25s %8d %12.2f %12.2f",
+                    (int)detail->id_producto->len, detail->id_producto->text,
+                    desc,
+                    detail->cantidad,
+                    detail->precio_unitario,
+                    detail->subtotal);
+            
+            mvprintw(currentRow, (tWidth - strlen(productLine)) / 2, "%s", productLine);
+            currentRow++;
+        }
+    }
+
+    // --- Totales centrados ---
+    mvprintw(tHeight - 6, (tWidth - 40) / 2, "----------------------------------------");
+    
+    char subtotalStr[50], taxStr[50], totalStr[50];
+    snprintf(subtotalStr, sizeof(subtotalStr), "Subtotal: %.2f", invoice->subtotal);
+    snprintf(taxStr, sizeof(taxStr), "Impuesto (13%%): %.2f", invoice->impuesto);
+    snprintf(totalStr, sizeof(totalStr), "TOTAL: %.2f", invoice->total);
+    
+    mvprintw(tHeight - 5, (tWidth - strlen(subtotalStr)) / 2, "%s", subtotalStr);
+    mvprintw(tHeight - 4, (tWidth - strlen(taxStr)) / 2, "%s", taxStr);
+    mvprintw(tHeight - 3, (tWidth - strlen(totalStr)) / 2, "%s", totalStr);
+
+    // Mensaje para continuar centrado
+    mvprintw(tHeight - 6, (tWidth - 40) / 2, "----------------------------------------");
+    String *continueMsg = newString("Presione cualquier tecla para continuar");
+    mvprintw(tHeight - 1, (tWidth - continueMsg->len) / 2, "%.*s", 
+            (int)continueMsg->len, continueMsg->text);
+    getch();
+    deleteString(continueMsg);
+    
+    refresh();
 }
 
 // Función para mostrar el resumen de facturas
@@ -346,88 +453,8 @@ void showInvoiceDetails(MYSQL *conn, int invoiceId) {
         return;
     }
 
-    // Mostrar encabezado de la factura
-    clear();
-    mvprintw(0, 0, "Factura #%d", invoice->id);
-    mvprintw(1, 0, "Empresa: %s", invoice->nombre_empresa->text);
-    mvprintw(2, 0, "Cédula: %s", invoice->cedula_juridica->text);
-    mvprintw(3, 0, "Teléfono: %s", invoice->telefono->text);
-    mvprintw(4, 0, "Fecha: %s  Hora: %s", invoice->fecha->text, invoice->hora->text);
-    mvprintw(5, 0, "Cliente: %s", invoice->cliente->text);
-    getch(); // Esperar entrada del usuario antes de continuar
-    
-    // Mostrar tabla de detalles
-    PtrArray *headings = newPtrArray();
-    ptrArrayAppend(newString("ID Producto"), headings);
-    ptrArrayAppend(newString("Descripción"), headings);
-    ptrArrayAppend(newString("Cantidad"), headings);
-    ptrArrayAppend(newString("Precio Unit."), headings);
-    ptrArrayAppend(newString("Subtotal"), headings);
-
-    IntArray *widths = newIntArray();
-    intArrayAppend(12, widths);   // ID Producto
-    intArrayAppend(25, widths);   // Descripción
-    intArrayAppend(10, widths);   // Cantidad
-    intArrayAppend(12, widths);   // Precio Unit.
-    intArrayAppend(12, widths);   // Subtotal
-
-    PtrArray *rows = newPtrArray();
-    
-    for (int i = 0; i < invoice->detalles->len; i++) {
-        InvoiceDetail *detail = (InvoiceDetail *)invoice->detalles->data[i];
-        PtrArray *row = newPtrArray();
-        
-        ptrArrayAppend(newString(detail->id_producto->text), row);
-        
-        // Descripción (limitada a 25 caracteres)
-        char desc[26];
-        snprintf(desc, sizeof(desc), "%.25s", detail->descripcion->text);
-        ptrArrayAppend(newString(desc), row);
-        
-        // Cantidad
-        char cantidadStr[12];
-        snprintf(cantidadStr, sizeof(cantidadStr), "%d", detail->cantidad);
-        ptrArrayAppend(newString(cantidadStr), row);
-        
-        // Precio Unitario
-        char precioStr[12];
-        snprintf(precioStr, sizeof(precioStr), "%.2f", detail->precio_unitario);
-        ptrArrayAppend(newString(precioStr), row);
-        
-        // Subtotal
-        char subtotalStr[12];
-        snprintf(subtotalStr, sizeof(subtotalStr), "%.2f", detail->subtotal);
-        ptrArrayAppend(newString(subtotalStr), row);
-        
-        ptrArrayAppend(row, rows);
-    }
-
-    // Mostrar la tabla de detalles
-    String *title = newString("Detalles de la Factura");
-    showScrollableList(title, headings, rows, widths, 0);
-    
-    // Mostrar totales
-    int tHeight = getmaxy(stdscr);
-    mvprintw(tHeight - 4, 0, "Subtotal: %.2f", invoice->subtotal);
-    mvprintw(tHeight - 3, 0, "Impuesto (13%%): %.2f", invoice->impuesto);
-    mvprintw(tHeight - 2, 0, "Total: %.2f", invoice->total);
-
-    getch();
-    
-    String *continueMsg = newString("Presione cualquier tecla para continuar");
-    showAlert(NULL, continueMsg, tHeight - 1, 0);
-    deleteString(continueMsg);
-
-    // Liberar memoria
-    deleteString(title);
-    deleteStringArray(headings);
-    deleteIntArray(widths);
-    
-    for (int i = 0; i < rows->len; i++) {
-        PtrArray *row = rows->data[i];
-        deleteStringArray(row);
-    }
-    deletePtrArray(rows);
+    // Mostrar factura completa con detalles
+    showInvoice(invoice, 1);
     
     freeInvoiceFull(invoice);
 }
