@@ -14,6 +14,7 @@
 #include <string.h>
 #include <time.h>
 #include "invoice.c"
+#include "statistics.c"
 
 MYSQL *conn;
 
@@ -1019,9 +1020,6 @@ void makeInvoice() {
 
 
 
-// TO DO.
-void statistics() {
-}
 
 void adminOpts() {
   PtrArray *opts = newPtrArray();
@@ -1053,7 +1051,7 @@ void adminOpts() {
         queryInvoice(conn);
         break;
       case 5:
-        statistics();
+        statistics(conn);
         break;
       }
   }
