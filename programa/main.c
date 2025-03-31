@@ -526,24 +526,54 @@ void makeQuotation() {
         mysql_free_result(productResult);
         break;
       }
-      clear();
+      clearBlock((Cell){0, 0}, width - 1, 5);
       String *title = newString("Ingrese la cantidad");
-      String *amountStr = showInput(title, 3, 0);
+      String *amountStr = showInput(title, 2, 0);
       while (!amountStr || !isNumber(amountStr)) {
         deleteString(amountStr);
-        amountStr = showInput(title, 3, 1);
+        amountStr = showInput(title, 2, 1);
       }
       deleteString(title);
       int amount = toInt(amountStr);
-      
-      MYSQL_ROW row = mysql_fetch_row(productResult);
+      MYSQL_ROW dbRow = mysql_fetch_row(productResult);
+      int stock = atoi(dbRow[2]);
+      if (amount > stock) {
+        String *msg = newString("Stock insuficiente");
+        showAlert(NULL, msg, 3, 1);
+        deleteString(msg);
+        mysql_free_result(productResult);
+        deleteString(amountStr);
+        break;
+      }
+
+      int isUsed = 0;
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        if (compareStringToBuffer(row->data[1], dbRow[1])) {
+          int currAmount = toInt(row->data[3]);
+          double price = toDouble(row->data[4]);
+          double total = (currAmount + amount) * price;
+          deleteString(row->data[3]);
+          row->data[3] = newStringI(currAmount + amount);
+          deleteString(row->data[5]);
+          row->data[5] = newStringD(total);
+          isUsed = 1;
+        }
+      }
+      getch();
+      if (isUsed) {
+        mysql_free_result(productResult);
+        deleteString(amountStr);
+        break;
+      }
+
       PtrArray *newRow = newPtrArray();
       ptrArrayAppend(newStringI(rows->len + 1), newRow); // Index.
-      ptrArrayAppend(newString(row[1]), newRow); // Name.
-      ptrArrayAppend(newString(row[7]), newRow); // Family.
+      ptrArrayAppend(newString(dbRow[1]), newRow); // Name.
+      ptrArrayAppend(newString(dbRow[7]), newRow); // Family.
       ptrArrayAppend(amountStr, newRow); // Amount.
-      ptrArrayAppend(newString(row[4]), newRow); // Price.
-      ptrArrayAppend(newStringD(amount * atof(row[4])), newRow); // Total.
+      ptrArrayAppend(newString(dbRow[4]), newRow); // Price.
+      ptrArrayAppend(newStringD(amount * atof(dbRow[4])), newRow); // Total.
       ptrArrayAppend(newRow, rows);
       mysql_free_result(productResult);
       break;
