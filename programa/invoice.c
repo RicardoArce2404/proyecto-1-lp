@@ -177,12 +177,20 @@ InvoiceFull *getInvoiceDetails(MYSQL *conn, int invoiceId) {
     }
 
     MYSQL_ROW headerRow = mysql_fetch_row(headerRes);
-    invoice->nombre_empresa = newString(headerRow[0]);
-    invoice->cedula_juridica = newString(headerRow[1]);
-    invoice->telefono = newString(headerRow[2]);
-    invoice->fecha = newString(headerRow[3]);
-    invoice->hora = newString(headerRow[4]);
-    invoice->cliente = newString(headerRow[5]);
+
+
+    // Obtener información sobre los campos
+    MYSQL_FIELD *fields = mysql_fetch_fields(headerRes);
+
+    // Asignación segura usando newStringN
+    invoice->nombre_empresa = headerRow[0] ? newStringN(headerRow[0], fields[0].max_length) : newString("");
+    invoice->cedula_juridica = headerRow[1] ? newStringN(headerRow[1], fields[1].max_length) : newString("");
+    invoice->telefono = headerRow[2] ? newStringN(headerRow[2], fields[2].max_length) : newString("");
+    invoice->fecha = headerRow[3] ? newStringN(headerRow[3], fields[3].max_length) : newString("");
+    invoice->hora = headerRow[4] ? newStringN(headerRow[4], fields[4].max_length) : newString("");
+    invoice->cliente = headerRow[5] ? newStringN(headerRow[5], fields[5].max_length) : newString("");
+
+    // Campos numéricos
     invoice->subtotal = headerRow[6] ? atof(headerRow[6]) : 0.0;
     invoice->impuesto = headerRow[7] ? atof(headerRow[7]) : 0.0;
     invoice->total = headerRow[8] ? atof(headerRow[8]) : 0.0;
@@ -206,13 +214,19 @@ InvoiceFull *getInvoiceDetails(MYSQL *conn, int invoiceId) {
 
     MYSQL_RES *detailsRes = mysql_store_result(conn);
     if (detailsRes) {
+        // Obtener metadatos de los campos para las longitudes máximas
+        MYSQL_FIELD *fields = mysql_fetch_fields(detailsRes);
+        
         MYSQL_ROW detailsRow;
-        while (( detailsRow= mysql_fetch_row(detailsRes))) {
+        while ((detailsRow = mysql_fetch_row(detailsRes))) {
             InvoiceDetail *detail = (InvoiceDetail *)malloc(sizeof(InvoiceDetail));
             if (!detail) continue;
 
-            detail->id_producto = newString(detailsRow[0]);
-            detail->descripcion = newString(detailsRow[1]);
+            // Asignación segura usando newStringN con longitud máxima del campo
+            detail->id_producto =newStringN(detailsRow[0], fields[0].max_length);
+            detail->descripcion = newStringN(detailsRow[1], fields[1].max_length);
+            
+            // Campos numéricos con validación
             detail->cantidad = detailsRow[2] ? atoi(detailsRow[2]) : 0;
             detail->precio_unitario = detailsRow[3] ? atof(detailsRow[3]) : 0.0;
             detail->subtotal = detailsRow[4] ? atof(detailsRow[4]) : 0.0;
@@ -340,6 +354,7 @@ void showInvoiceDetails(MYSQL *conn, int invoiceId) {
     mvprintw(3, 0, "Teléfono: %s", invoice->telefono->text);
     mvprintw(4, 0, "Fecha: %s  Hora: %s", invoice->fecha->text, invoice->hora->text);
     mvprintw(5, 0, "Cliente: %s", invoice->cliente->text);
+    getch(); // Esperar entrada del usuario antes de continuar
     
     // Mostrar tabla de detalles
     PtrArray *headings = newPtrArray();
@@ -396,6 +411,8 @@ void showInvoiceDetails(MYSQL *conn, int invoiceId) {
     mvprintw(tHeight - 4, 0, "Subtotal: %.2f", invoice->subtotal);
     mvprintw(tHeight - 3, 0, "Impuesto (13%%): %.2f", invoice->impuesto);
     mvprintw(tHeight - 2, 0, "Total: %.2f", invoice->total);
+
+    getch();
     
     String *continueMsg = newString("Presione cualquier tecla para continuar");
     showAlert(NULL, continueMsg, tHeight - 1, 0);

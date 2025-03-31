@@ -650,13 +650,13 @@ void makeQuotation() {
 
   MYSQL_ROW row  = mysql_fetch_row(res);
   int quotationId = atoi(row[0]);
-  int result = atoi(row[1]);
+  //int result = atoi(row[1]);
   mysql_free_result(res);
   mysql_stmt_close(stmt);
 
   MYSQL_STMT *stmtDet;
   MYSQL_BIND bindDet[4];
-  int resultDet = 0;
+  //int resultDet = 0;
 
   stmtDet = mysql_stmt_init(conn);
   if (stmtDet == NULL) {
@@ -720,8 +720,8 @@ void makeQuotation() {
       exit(1);
     }
 
-    MYSQL_ROW rowDet  = mysql_fetch_row(resDet);
-    int result = atoi(rowDet[0]);
+    //MYSQL_ROW rowDet  = mysql_fetch_row(resDet);
+    //int result = atoi(rowDet[0]);
     mysql_free_result(resDet);
   }
   mysql_stmt_close(stmt);
