@@ -1,3 +1,4 @@
+#include <mysql/field_types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #define _XOPEN_SOURCE 700
@@ -405,6 +406,7 @@ void makeQuotation() {
   intArrayAppend(15, widths);
 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  PtrArray *ids = newPtrArray(); // This stores only product ids.
 
   String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
   String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -  |  Guardar: <Enter>");
@@ -507,7 +509,6 @@ void makeQuotation() {
               "SELECT * FROM Producto AS p JOIN Familia as f WHERE p.id_producto = \"%.*s\" && p.id_familia = f.id_familia",
               id->len,
               id->text);
-      deleteString(id);
       if (mysql_query(conn, query)) {
         printw("Error al consultar producto: %s\n", mysql_error(conn));
         refresh();
@@ -524,6 +525,7 @@ void makeQuotation() {
       int numRows = mysql_num_rows(productResult);
       if (numRows == 0) {
         mysql_free_result(productResult);
+        deleteString(id);
         break;
       }
       clearBlock((Cell){0, 0}, width - 1, 5);
@@ -543,6 +545,7 @@ void makeQuotation() {
         deleteString(msg);
         mysql_free_result(productResult);
         deleteString(amountStr);
+        deleteString(id);
         break;
       }
 
@@ -560,10 +563,10 @@ void makeQuotation() {
           isUsed = 1;
         }
       }
-      getch();
       if (isUsed) {
         mysql_free_result(productResult);
         deleteString(amountStr);
+        deleteString(id);
         break;
       }
 
@@ -576,6 +579,8 @@ void makeQuotation() {
       ptrArrayAppend(newStringD(amount * atof(dbRow[4])), newRow); // Total.
       ptrArrayAppend(newRow, rows);
       mysql_free_result(productResult);
+      ptrArrayAppend(id, ids);
+      deleteString(id);
       break;
     }
     case '-': {
@@ -595,6 +600,7 @@ void makeQuotation() {
         deleteStringArray(rows->data[row]);
         ptrArrayRemove(row, rows);
       }
+      deleteString(ids->data[row]);
       break;
     }
     }
@@ -607,12 +613,133 @@ void makeQuotation() {
   deleteString(taxesStr);
   deleteString(totalStr);
 
+  MYSQL_STMT *stmt; // Esta wea parece hecha por chatgpt pero así sale en la documentación xd.
+
+  stmt = mysql_stmt_init(conn);
+  if (stmt == NULL) {
+    printw("Error inicializando stmt.");
+    getch();
+    exit(1);
+  }
+
+  char query[] = "CALL RegistrarCotizacion(@quotationId, @result)";
+  if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+    printw("%s", mysql_stmt_error(stmt));
+    getch();
+    exit(1);
+  }
+
+  if (mysql_stmt_execute(stmt)) {
+    printw("%s", mysql_stmt_error(stmt));
+    getch();
+    exit(1);
+  }
+
+  if (mysql_query(conn, "SELECT @quotationId, @result")) {
+    printw("%s", mysql_error(conn));
+    getch();
+    exit(1);
+  }
+
+  MYSQL_RES *res = mysql_store_result(conn);
+  if (res == NULL) {
+    printw("%s", mysql_error(conn));
+    getch();
+    exit(1);
+  }
+
+  MYSQL_ROW row  = mysql_fetch_row(res);
+  int quotationId = atoi(row[0]);
+  int result = atoi(row[1]);
+  mysql_free_result(res);
+  mysql_stmt_close(stmt);
+
+  MYSQL_STMT *stmtDet;
+  MYSQL_BIND bindDet[4];
+  int resultDet = 0;
+
+  stmtDet = mysql_stmt_init(conn);
+  if (stmtDet == NULL) {
+    printw("Error inicializando stmt.");
+    getch();
+    exit(1);
+  }
+
+  for (int i = 0; i < rows->len; i++) {
+    char query[] = "CALL AgregarDetalleCotizacion(?, ?, ?, @resultDet)";
+    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+      printw("%s", mysql_stmt_error(stmt));
+      getch();
+      exit(1);
+    }
+
+    memset(bindDet, 0, sizeof(bindDet));
+
+    bindDet[0].buffer_type = MYSQL_TYPE_LONG;
+    bindDet[0].buffer = (char*)&quotationId;
+    bindDet[0].is_null = 0;
+    bindDet[0].length = 0;
+
+    String *id = ids->data[i];
+    bindDet[1].buffer_type = MYSQL_TYPE_STRING;
+    bindDet[1].buffer = id->text;
+    bindDet[1].buffer_length = id->len;
+    bindDet[1].is_null = 0;
+    bindDet[1].length = 0;
+
+    PtrArray *row = rows->data[i];
+    String *amountStr = row->data[3];
+    int amount = toInt(amountStr);
+    bindDet[2].buffer_type = MYSQL_TYPE_LONG;
+    bindDet[2].buffer = (char *)&amount;
+    bindDet[2].is_null = 0;
+    bindDet[2].length = 0;
+
+    if (mysql_stmt_bind_param(stmtDet, bindDet)) {
+      printw("%s", mysql_stmt_error(stmt));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_stmt_execute(stmt)) {
+      printw("%s", mysql_stmt_error(stmt));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_query(conn, "SELECT @resultDet")) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    MYSQL_RES *resDet = mysql_store_result(conn);
+    if (resDet == NULL) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    MYSQL_ROW rowDet  = mysql_fetch_row(resDet);
+    int result = atoi(rowDet[0]);
+    mysql_free_result(resDet);
+  }
+  mysql_stmt_close(stmt);
+
   deleteStringArray(headings);
   deleteIntArray(widths);
   for (int i = 0; i < rows->len; i++) {
     deleteStringArray(rows->data[i]);
+    deleteString(ids->data[i]);
   }
   deletePtrArray(rows);
+  deletePtrArray(ids);
+
+  char buf[70] = {0};
+  sprintf(buf, "Esta cotización se guardó con el código %i.", quotationId);
+  buf[69] = '\0';
+  String *s = newString(buf);
+  showAlert(NULL, s, 3, 0);
 }
 
 void editQuotation() {
