@@ -1461,7 +1461,7 @@ void deleteProduct(MYSQL *conn) {
     }
 
     if (resultMsg) {
-        showAlert(newString("Resultado"), resultMsg, (maxy > 3) ? (maxy - 3) : 1, isError);
+        showAlert(NULL, resultMsg, (maxy > 3) ? (maxy - 3) : 1, isError);
         deleteString(resultMsg);
     }
     
