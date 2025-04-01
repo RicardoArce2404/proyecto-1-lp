@@ -1,11 +1,4 @@
 
-/*
-- Productos por familia
-- Productos
-- Cotizaciones
-- Facturas
-*/
-
     
 CREATE VIEW VistaCotizaciones AS
 SELECT 

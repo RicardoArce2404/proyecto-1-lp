@@ -198,7 +198,7 @@ BEGIN
         -- Verificar producto y obtener familia
         SELECT COUNT(*), id_familia INTO v_existe_producto, v_id_familia
         FROM Producto WHERE id_producto = p_id_producto
-	GROUP BY id_familia;
+	    GROUP BY id_familia;
 
         IF v_existe_producto = 0 THEN
             SET p_resultado = 3; -- Producto no existe
@@ -210,7 +210,7 @@ BEGIN
             SELECT COUNT(*), IFNULL(cantidad, 0) INTO v_existe_detalle, v_cantidad_actual
             FROM DetalleCotizacion
             WHERE id_cotizacion = p_id_cotizacion AND id_producto = p_id_producto
-	    GROUP BY cantidad;
+	        GROUP BY cantidad;
 
             IF v_stock_disponible < (CASE WHEN v_existe_detalle > 0 THEN v_cantidad_actual + p_cantidad ELSE p_cantidad END) THEN
                 SET p_resultado = 2; -- Stock insuficiente

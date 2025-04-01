@@ -133,7 +133,7 @@ int main() {
   keypad(stdscr, TRUE);
 
   // Mostrar pantalla de bienvenida
-  showWelcomeScreen("BIENVENIDOS A PULTETEC", "Sistema de Punto de Venta");
+  showWelcomeScreen("BIENVENIDOS A PULPETEC", "Sistema de Punto de Venta");
 
   // Conectar a la base de datos
   conn = mysql_init(NULL);
