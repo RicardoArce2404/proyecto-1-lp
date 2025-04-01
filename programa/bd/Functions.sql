@@ -7,11 +7,11 @@ RETURNS INT
 DETERMINISTIC
 BEGIN
     DECLARE v_count INT;
-    
+
     SELECT COUNT(*) INTO v_count 
     FROM Cotizacion 
     WHERE estado = 'Pendiente';
-    
+
     RETURN v_count;
 END //
 
@@ -24,11 +24,11 @@ RETURNS INT
 DETERMINISTIC
 BEGIN
     DECLARE v_count INT;
-    
+
     SELECT COUNT(*) INTO v_count 
     FROM Cotizacion 
     WHERE estado = 'Facturado';
-    
+
     RETURN v_count;
 END //
 
@@ -41,7 +41,7 @@ RETURNS FLOAT
 DETERMINISTIC
 BEGIN
     DECLARE v_promedio FLOAT;
-    
+
     SELECT AVG(total) INTO v_promedio
     FROM (
         SELECT SUM(dc.cantidad * p.precio) AS total
@@ -51,8 +51,9 @@ BEGIN
         JOIN Producto p ON dc.id_producto = p.id_producto
         GROUP BY f.id_factura
     ) AS totals;
-    
+
     RETURN IFNULL(v_promedio, 0);
 END //
 
 DELIMITER ;
+

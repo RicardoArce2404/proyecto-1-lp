@@ -291,5 +291,16 @@ END //
 
 DELIMITER ;
 
+DELIMITER //
 
+CREATE PROCEDURE sp_DetalleInfoCotizacion(IN id_cotizacion INT)
+BEGIN
+    SELECT p.descripcion, f.descripcion, dc.cantidad, p.precio, p.precio * dc.cantidad, p.id_producto
+    FROM Producto p
+    JOIN Familia f ON p.id_familia = f.id_familia
+    JOIN DetalleCotizacion dc ON p.id_producto = dc.id_producto
+    WHERE dc.id_cotizacion = id_cotizacion;
+END //
+
+DELIMITER ;
 

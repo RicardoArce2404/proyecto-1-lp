@@ -30,7 +30,6 @@ void catalogQuery(MYSQL *conn) {
   intArrayAppend(15, widths);
   intArrayAppend(6, widths);
 
-
   if (mysql_query(conn, "SELECT * FROM Familia")) {
     printw("Error al consultar familias: %s\n", mysql_error(conn));
     refresh();
@@ -770,6 +769,7 @@ void editQuotation(MYSQL *conn) {
   }
   deleteString(title);
   int quotationId = toInt(input);
+  deleteString(input);
 
   if (mysql_query(conn, "SELECT * FROM Cotizacion")) {
     printw("Error al consultar cotizaciones: %s\n", mysql_error(conn));
@@ -785,7 +785,7 @@ void editQuotation(MYSQL *conn) {
   }
 
   int flag = 0; // 0: unknown id. 1: invoiced id. 2: OK id.
-  MYSQL_ROW row = mysql_fetch_row(result);
+  MYSQL_ROW row;
   while ((row = mysql_fetch_row(result))) {
     if (quotationId == atoi(row[0])) {
       if (strcmp(row[1], "Pendiente") == 0) {
@@ -793,8 +793,8 @@ void editQuotation(MYSQL *conn) {
       } else {
         flag = 1;
       }
+      break;
     }
-    break;
   }
   mysql_free_result(result);
 
@@ -818,29 +818,137 @@ void editQuotation(MYSQL *conn) {
   ptrArrayAppend(newString("#"), headings);
   ptrArrayAppend(newString("Nombre"), headings);
   ptrArrayAppend(newString("Descripción"), headings);
+  ptrArrayAppend(newString("Cantidad"), headings);
   ptrArrayAppend(newString("Precio"), headings);
+  ptrArrayAppend(newString("Total"), headings);
 
   IntArray *widths = newIntArray();
   intArrayAppend(3, widths);
   intArrayAppend(20, widths);
   intArrayAppend(40, widths);
-  intArrayAppend(20, widths);
+  intArrayAppend(10, widths);
+  intArrayAppend(10, widths);
+  intArrayAppend(15, widths);
 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  PtrArray *ids = newPtrArray(); // This stores only product ids.
+
+
+  char buf[512] = {0};
+  sprintf(buf, "SELECT p.descripcion, f.descripcion, dc.cantidad, p.precio, p.precio * dc.cantidad, p.id_producto FROM Producto p JOIN Familia f ON p.id_familia = f.id_familia JOIN DetalleCotizacion dc ON p.id_producto = dc.id_producto WHERE dc.id_cotizacion = %i;", quotationId);
+
+  if (mysql_query(conn, buf)) {
+    printw("Error al consultar: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
+
+  MYSQL_RES *res = mysql_store_result(conn);
+  if (!res) {
+    printw("Error al obtener resultados de familias\n");
+    refresh();
+    getch();
+    return;
+  }
+
+  int i = 1;
+  while ((row = mysql_fetch_row(res))) {
+    PtrArray *tableRow = newPtrArray();
+    ptrArrayAppend(newStringI(i), tableRow);
+    ptrArrayAppend(newString(row[0]), tableRow);
+    ptrArrayAppend(newString(row[1]), tableRow);
+    ptrArrayAppend(newString(row[2]), tableRow);
+    ptrArrayAppend(newString(row[3]), tableRow);
+    ptrArrayAppend(newString(row[4]), tableRow);
+    ptrArrayAppend(tableRow, rows);
+    ptrArrayAppend(newString(row[5]), ids);
+    i++;
+  }
+  mysql_free_result(res);
+
   String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
   String *helpBar2 = newString("Agregar producto: +  |  Eliminar producto: -  |  Guardar: <Enter>");
+  int height = 7;
+  /*const int MAX_ROWS = tHeight - 15;*/
+  const int MAX_ROWS = 5;
+  if (rows->len > MAX_ROWS) {
+    height += MAX_ROWS;
+  } else {
+    height += rows->len;
+  }
+  int width = 0;
+  for (int i = 0; i < widths->len; i++) {
+    width += widths->data[i];
+  }
+  width += headings->len + 1;
 
+  int ulCornerRow = (tHeight - height) / 2;
+  int ulCornerCol = (tWidth - width) / 2;
+  Cell ulCorner = {ulCornerRow, ulCornerCol};
+
+  String *subtotalStr = newString("Subtotal │");
+  String *taxesStr = newString("Impuesto de venta 13% │");
+  String *totalStr = newString("Total │");
   title = newString("Crear cotización");
   int initialRow = 0;
   int keyPressed = 0;
+  int numVisibleRows = height - 7;
   do {
-    int numVisibleRows = showScrollableList(title, headings, rows, widths, initialRow);
-    move(tHeight - 2, 1);
-    printCentered(helpBar1, tWidth);
-    move(tHeight - 1, 1);
-    printCentered(helpBar2, tWidth);
+    height = 7;
+    if (rows->len > MAX_ROWS) {
+      height += MAX_ROWS;
+    } else {
+      height += rows->len;
+    }
+    numVisibleRows = height - 7;
+    ulCornerRow = (tHeight - height) / 2;
+    ulCornerCol = (tWidth - width) / 2;
+    ulCorner = (Cell){ulCornerRow, ulCornerCol};
 
+    clear();
+    printRectangle(ulCorner, width, height);
+    move(ulCornerRow + 1, ulCornerCol + 1);
+    printRow(headings, widths);
+    printLineD(ulCornerRow + 2, ulCornerCol + 1, width - 1, 1);
+
+    int detailsRow = ulCornerRow + 3;
+    for (int i = 0; i < numVisibleRows; i++) {
+      PtrArray *row = rows->data[initialRow + i];
+      String *num = newStringI(i + 1);
+      deleteString(row->data[0]);
+      row->data[0] = num;
+      move(detailsRow + i, ulCornerCol + 1);
+      printRow(row, widths);
+    }
+    int summaryRow = detailsRow + rows->len;
+    printLineD(summaryRow, ulCornerCol + 1, width - 1, 1);
+
+    double subtotal = 0;
+    for (int i = 0; i < rows->len; i++) {
+      PtrArray *row = rows->data[i];
+      String *totalStr = row->data[5];
+      subtotal += toDouble(totalStr);
+    }
+    double taxes = subtotal * 0.13;
+    double total = subtotal + taxes;
+    // The + 1 is to take into account the column separator.
+    int c = ulCornerCol + width - widths->data[5] + 1;
+    int subtotalCol = c - subtotalStr->len;
+    int taxesCol = c - taxesStr->len;
+    int totalCol = c - totalStr->len;
+    mvprintw(summaryRow + 1, subtotalCol, "%.*s %.1f",
+             subtotalStr->len, subtotalStr->text, subtotal);
+    mvprintw(summaryRow + 2, taxesCol, "%.*s %.1f",
+             taxesStr->len, taxesStr->text, taxes);
+    mvprintw(summaryRow + 3, totalCol, "%.*s %.1f",
+             totalStr->len, totalStr->text, total);
+    move(tHeight - 3, ulCornerCol);
+    printCentered(helpBar1, width);
+    move(tHeight - 2, ulCornerCol);
+    printCentered(helpBar2, width);
     keyPressed = getch();
+
     switch (keyPressed) {
     case KEY_UP:
       if (initialRow > 0)
@@ -851,21 +959,83 @@ void editQuotation(MYSQL *conn) {
         initialRow++;
       break;
     case '+': {
-      /*String *id = showCatalog();*/
-      /*for (int i = 0; i < rows->len; i++) {*/
-      /*  PtrArray *row = rows->data[i];*/
-      /*  if (toInt(row->data[0]) == id) {*/
-      /*    // Logic to add new amount to existing amount.*/
-      /*    break;*/
-      /*  }*/
-      /*}*/
-      // TO DO: Query DB to get product info using product's ID.
+      String *id = showCatalog(conn);
+      char query[256] = {0};
+      sprintf(query,
+              "SELECT * FROM Producto AS p JOIN Familia as f WHERE p.id_producto = \"%.*s\" && p.id_familia = f.id_familia",
+              id->len,
+              id->text);
+      if (mysql_query(conn, query)) {
+        printw("Error al consultar producto: %s\n", mysql_error(conn));
+        refresh();
+        getch();
+        return;
+      }
+      MYSQL_RES *productResult = mysql_store_result(conn);
+      if (!productResult) {
+        printw("Error al obtener resultados de producto\n");
+        refresh();
+        getch();
+        return;
+      }
+      int numRows = mysql_num_rows(productResult);
+      if (numRows == 0) {
+        mysql_free_result(productResult);
+        deleteString(id);
+        break;
+      }
+      clearBlock((Cell){0, 0}, width - 1, 5);
+      String *title = newString("Ingrese la cantidad");
+      String *amountStr = showInput(title, 2, 0);
+      while (!amountStr || !isNumber(amountStr) || toInt(amountStr) < 1) {
+        deleteString(amountStr);
+        amountStr = showInput(title, 2, 1);
+      }
+      deleteString(title);
+      int amount = toInt(amountStr);
+      MYSQL_ROW dbRow = mysql_fetch_row(productResult);
+      int stock = atoi(dbRow[2]);
+      if (amount > stock) {
+        String *msg = newString("Stock insuficiente");
+        showAlert(NULL, msg, 3, 1);
+        deleteString(msg);
+        mysql_free_result(productResult);
+        deleteString(amountStr);
+        deleteString(id);
+        break;
+      }
+
+      int isUsed = 0;
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        if (compareStringToBuffer(row->data[1], dbRow[1])) {
+          int currAmount = toInt(row->data[3]);
+          double price = toDouble(row->data[4]);
+          double total = (currAmount + amount) * price;
+          deleteString(row->data[3]);
+          row->data[3] = newStringI(currAmount + amount);
+          deleteString(row->data[5]);
+          row->data[5] = newStringD(total);
+          isUsed = 1;
+        }
+      }
+      if (isUsed) {
+        mysql_free_result(productResult);
+        deleteString(amountStr);
+        deleteString(id);
+        break;
+      }
+
       PtrArray *newRow = newPtrArray();
-      ptrArrayAppend(newString("1"), newRow);
-      ptrArrayAppend(newString("1234"), newRow);
-      ptrArrayAppend(newString("abcde"), newRow);
-      ptrArrayAppend(newString("abcde"), newRow);
+      ptrArrayAppend(newStringI(rows->len + 1), newRow); // Index.
+      ptrArrayAppend(newString(dbRow[1]), newRow); // Name.
+      ptrArrayAppend(newString(dbRow[7]), newRow); // Family.
+      ptrArrayAppend(amountStr, newRow); // Amount.
+      ptrArrayAppend(newString(dbRow[4]), newRow); // Price.
+      ptrArrayAppend(newStringD(amount * atof(dbRow[4])), newRow); // Total.
       ptrArrayAppend(newRow, rows);
+      mysql_free_result(productResult);
+      ptrArrayAppend(id, ids);
       break;
     }
     case '-': {
@@ -884,21 +1054,130 @@ void editQuotation(MYSQL *conn) {
       if (0 <= row && row <= rows->len - 1) {
         deleteStringArray(rows->data[row]);
         ptrArrayRemove(row, rows);
+        deleteString(ids->data[row]);
+        ptrArrayRemove(row, ids);
       }
+
       break;
     }
     }
   } while (keyPressed != '\n');
+
   deleteString(title);
   deleteString(helpBar1);
   deleteString(helpBar2);
+  deleteString(subtotalStr);
+  deleteString(taxesStr);
+  deleteString(totalStr);
+
+  if (rows->len == 0) {
+    String *s = newString("No se efectuaron cambios");
+    showAlert(NULL, s, 3, 0);
+    deleteString(s);
+    deleteStringArray(headings);
+    deleteIntArray(widths);
+    for (int i = 0; i < rows->len; i++) {
+      deleteStringArray(rows->data[i]);
+      deleteString(ids->data[i]);
+    }
+    deletePtrArray(rows);
+    deletePtrArray(ids);
+    return;
+  }
+
+  char bufDel[100] = {0};
+  sprintf(bufDel, "DELETE FROM DetalleCotizacion WHERE id_cotizacion = %i", quotationId);
+
+  if (mysql_query(conn, bufDel)) {
+    printw("Error al consultar: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
+
+  MYSQL_STMT *stmtDet;
+  MYSQL_BIND bindDet[4];
+
+  stmtDet = mysql_stmt_init(conn);
+  if (stmtDet == NULL) {
+    printw("Error inicializando stmt.");
+    getch();
+    exit(1);
+  }
+
+  for (int i = 0; i < rows->len; i++) {
+    char query[] = "CALL AgregarDetalleCotizacion(?, ?, ?, @resultDet)";
+    if (mysql_stmt_prepare(stmtDet, query, strlen(query))) {
+      printw("%s", mysql_stmt_error(stmtDet));
+      getch();
+      exit(1);
+    }
+
+    memset(bindDet, 0, sizeof(bindDet));
+
+    bindDet[0].buffer_type = MYSQL_TYPE_LONG;
+    bindDet[0].buffer = (char*)&quotationId;
+    bindDet[0].is_null = 0;
+    bindDet[0].length = 0;
+
+    String *id = ids->data[i];
+    bindDet[1].buffer_type = MYSQL_TYPE_STRING;
+    bindDet[1].buffer = id->text;
+    bindDet[1].buffer_length = id->len;
+    bindDet[1].is_null = 0;
+    bindDet[1].length = 0;
+
+    PtrArray *row = rows->data[i];
+    String *amountStr = row->data[3];
+    int amount = toInt(amountStr);
+    bindDet[2].buffer_type = MYSQL_TYPE_LONG;
+    bindDet[2].buffer = (char *)&amount;
+    bindDet[2].is_null = 0;
+    bindDet[2].length = 0;
+
+    if (mysql_stmt_bind_param(stmtDet, bindDet)) {
+      printw("%s", mysql_stmt_error(stmtDet));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_stmt_execute(stmtDet)) {
+      printw("%s", mysql_stmt_error(stmtDet));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_query(conn, "SELECT @resultDet")) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    MYSQL_RES *resDet = mysql_store_result(conn);
+    if (resDet == NULL) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    //MYSQL_ROW rowDet  = mysql_fetch_row(resDet);
+    //int result = atoi(rowDet[0]);
+    mysql_free_result(resDet);
+  }
+  mysql_stmt_close(stmtDet);
 
   deleteStringArray(headings);
   deleteIntArray(widths);
   for (int i = 0; i < rows->len; i++) {
     deleteStringArray(rows->data[i]);
+    deleteString(ids->data[i]);
   }
   deletePtrArray(rows);
+  deletePtrArray(ids);
+
+  String *s = newString("Cotización editada satisfactoriamente");
+  showAlert(NULL, s, 3, 0);
+  deleteString(s);
 }
 
 void makeInvoice(MYSQL *conn) {
