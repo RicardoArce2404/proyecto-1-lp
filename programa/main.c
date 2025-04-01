@@ -532,7 +532,7 @@ void makeQuotation() {
       clearBlock((Cell){0, 0}, width - 1, 5);
       String *title = newString("Ingrese la cantidad");
       String *amountStr = showInput(title, 2, 0);
-      while (!amountStr || !isNumber(amountStr)) {
+      while (!amountStr || !isNumber(amountStr) || toInt(amountStr) < 1) {
         deleteString(amountStr);
         amountStr = showInput(title, 2, 1);
       }
@@ -581,7 +581,6 @@ void makeQuotation() {
       ptrArrayAppend(newRow, rows);
       mysql_free_result(productResult);
       ptrArrayAppend(id, ids);
-      deleteString(id);
       break;
     }
     case '-': {
@@ -600,8 +599,10 @@ void makeQuotation() {
       if (0 <= row && row <= rows->len - 1) {
         deleteStringArray(rows->data[row]);
         ptrArrayRemove(row, rows);
+        deleteString(ids->data[row]);
+        ptrArrayRemove(row, ids);
       }
-      deleteString(ids->data[row]);
+
       break;
     }
     }
@@ -614,7 +615,22 @@ void makeQuotation() {
   deleteString(taxesStr);
   deleteString(totalStr);
 
-  MYSQL_STMT *stmt; // Esta wea parece hecha por chatgpt pero así sale en la documentación xd.
+  if (rows->len == 0) {
+    String *s = newString("No se efectuaron cambios");
+    showAlert(NULL, s, 3, 0);
+    deleteString(s);
+    deleteStringArray(headings);
+    deleteIntArray(widths);
+    for (int i = 0; i < rows->len; i++) {
+      deleteStringArray(rows->data[i]);
+      deleteString(ids->data[i]);
+    }
+    deletePtrArray(rows);
+    deletePtrArray(ids);
+    return;
+  }
+
+  MYSQL_STMT *stmt; // Esta wea parece hecha por chatgpt pero así sale en la documentación oficial xd.
 
   stmt = mysql_stmt_init(conn);
   if (stmt == NULL) {
@@ -668,8 +684,8 @@ void makeQuotation() {
 
   for (int i = 0; i < rows->len; i++) {
     char query[] = "CALL AgregarDetalleCotizacion(?, ?, ?, @resultDet)";
-    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
-      printw("%s", mysql_stmt_error(stmt));
+    if (mysql_stmt_prepare(stmtDet, query, strlen(query))) {
+      printw("%s", mysql_stmt_error(stmtDet));
       getch();
       exit(1);
     }
@@ -697,13 +713,13 @@ void makeQuotation() {
     bindDet[2].length = 0;
 
     if (mysql_stmt_bind_param(stmtDet, bindDet)) {
-      printw("%s", mysql_stmt_error(stmt));
+      printw("%s", mysql_stmt_error(stmtDet));
       getch();
       exit(1);
     }
 
-    if (mysql_stmt_execute(stmt)) {
-      printw("%s", mysql_stmt_error(stmt));
+    if (mysql_stmt_execute(stmtDet)) {
+      printw("%s", mysql_stmt_error(stmtDet));
       getch();
       exit(1);
     }
@@ -725,7 +741,7 @@ void makeQuotation() {
     //int result = atoi(rowDet[0]);
     mysql_free_result(resDet);
   }
-  mysql_stmt_close(stmt);
+  mysql_stmt_close(stmtDet);
 
   deleteStringArray(headings);
   deleteIntArray(widths);
@@ -741,6 +757,7 @@ void makeQuotation() {
   buf[69] = '\0';
   String *s = newString(buf);
   showAlert(NULL, s, 3, 0);
+  deleteString(s);
 }
 
 void editQuotation() {

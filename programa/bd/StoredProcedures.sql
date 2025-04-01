@@ -175,7 +175,7 @@ CREATE PROCEDURE AgregarDetalleCotizacion(
     IN p_cantidad INT,
     OUT p_resultado INT) -- 1: No existe cotización, 2: Stock insuficiente, 3: Producto no existe, 4: Éxito
 BEGIN
-    DECLARE v_id_familia INT;
+    DECLARE v_id_familia VARCHAR(10);
     DECLARE v_estado VARCHAR(10);
     DECLARE v_existe_producto INT;
     DECLARE v_stock_disponible INT;
@@ -186,51 +186,53 @@ BEGIN
         SET p_resultado = 0; -- Error general
         ROLLBACK;
     END;
-    
+
     START TRANSACTION;
-    
+
     -- Verificar si la cotización existe y está pendiente
     SELECT estado INTO v_estado FROM Cotizacion WHERE id_cotizacion = p_id_cotizacion;
-    
+
     IF v_estado IS NULL THEN
         SET p_resultado = 1; -- No existe la cotización
     ELSE
         -- Verificar producto y obtener familia
-        SELECT COUNT(*), id_familia INTO v_existe_producto, v_id_familia 
-        FROM Producto WHERE id_producto = p_id_producto;
-        
+        SELECT COUNT(*), id_familia INTO v_existe_producto, v_id_familia
+        FROM Producto WHERE id_producto = p_id_producto
+	GROUP BY id_familia;
+
         IF v_existe_producto = 0 THEN
             SET p_resultado = 3; -- Producto no existe
         ELSE
             -- Verificar stock disponible
             SELECT stock INTO v_stock_disponible FROM Producto WHERE id_producto = p_id_producto;
-            
+
             -- Verificar si el producto ya está en la cotización
             SELECT COUNT(*), IFNULL(cantidad, 0) INTO v_existe_detalle, v_cantidad_actual
-            FROM DetalleCotizacion 
-            WHERE id_cotizacion = p_id_cotizacion AND id_producto = p_id_producto;
-            
+            FROM DetalleCotizacion
+            WHERE id_cotizacion = p_id_cotizacion AND id_producto = p_id_producto
+	    GROUP BY cantidad;
+
             IF v_stock_disponible < (CASE WHEN v_existe_detalle > 0 THEN v_cantidad_actual + p_cantidad ELSE p_cantidad END) THEN
                 SET p_resultado = 2; -- Stock insuficiente
             ELSE
                 IF v_existe_detalle > 0 THEN
                     -- Si ya existe, actualizar la cantidad
-                    UPDATE DetalleCotizacion 
+                    UPDATE DetalleCotizacion
                     SET cantidad = cantidad + p_cantidad
                     WHERE id_cotizacion = p_id_cotizacion AND id_producto = p_id_producto;
                 ELSE
                     -- Si no existe, insertar nuevo registro
-                    INSERT INTO DetalleCotizacion (cantidad, id_producto, id_familia, id_cotizacion)
-                    VALUES (p_cantidad, p_id_producto, v_id_familia, p_id_cotizacion);
+                    INSERT INTO DetalleCotizacion (cantidad, id_producto, id_cotizacion)
+                    VALUES (p_cantidad, p_id_producto, p_id_cotizacion);
                 END IF;
-                
+
                 SET p_resultado = 4; -- Éxito
             END IF;
         END IF;
     END IF;
     
     COMMIT;
-END 
+END //
 
 DELIMITER ;
 
