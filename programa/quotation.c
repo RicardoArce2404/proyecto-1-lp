@@ -536,7 +536,27 @@ void makeQuotation(MYSQL *conn) {
       int amount = toInt(amountStr);
       MYSQL_ROW dbRow = mysql_fetch_row(productResult);
       int stock = atoi(dbRow[2]);
-      if (amount > stock) {
+
+      int isUsed = 0;
+      int currAmount = 0;
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        if (compareStringToBuffer(row->data[1], dbRow[1])) {
+          currAmount = toInt(row->data[3]);
+          if (currAmount + amount > stock) {
+            break;
+          }
+          double price = toDouble(row->data[4]);
+          double total = (currAmount + amount) * price;
+          deleteString(row->data[3]);
+          row->data[3] = newStringI(currAmount + amount);
+          deleteString(row->data[5]);
+          row->data[5] = newStringD(total);
+          isUsed = 1;
+          break;
+        }
+      }
+      if (currAmount + amount > stock) {
         String *msg = newString("Stock insuficiente");
         showAlert(NULL, msg, 3, 1);
         deleteString(msg);
@@ -546,20 +566,6 @@ void makeQuotation(MYSQL *conn) {
         break;
       }
 
-      int isUsed = 0;
-      for (int i = 0; i < rows->len; i++) {
-        PtrArray *row = rows->data[i];
-        if (compareStringToBuffer(row->data[1], dbRow[1])) {
-          int currAmount = toInt(row->data[3]);
-          double price = toDouble(row->data[4]);
-          double total = (currAmount + amount) * price;
-          deleteString(row->data[3]);
-          row->data[3] = newStringI(currAmount + amount);
-          deleteString(row->data[5]);
-          row->data[5] = newStringD(total);
-          isUsed = 1;
-        }
-      }
       if (isUsed) {
         mysql_free_result(productResult);
         deleteString(amountStr);
@@ -1181,29 +1187,55 @@ void editQuotation(MYSQL *conn) {
 }
 
 void makeInvoice(MYSQL *conn) {
-  conn++;
-  conn--;
   int tWidth = 0;
   int tHeight = 0;
   getmaxyx(stdscr, tHeight, tWidth);
   clear();
   String *title = newString("Ingrese el número de cotización");
   String *input = showInput(title, tHeight / 2, 0);
-  while (input == NULL || !isNumber(input)) {
+  while (input == NULL || !isNumber(input) || toInt(input) < 1) {
     deleteString(input);
     input = showInput(title, tHeight / 2, 1);
   }
+  int quotationId = toInt(input);
   deleteString(title);
-  /*int quotationId = toInt(input);*/
   deleteString(input);
-  if (0) { // If quotation doesn't exist.
+
+  if (mysql_query(conn, "SELECT * FROM Cotizacion")) {
+    printw("Error al consultar cotizaciones: %s\n", mysql_error(conn));
+    getch();
+    exit(1);
+  }
+
+  MYSQL_RES *result = mysql_store_result(conn);
+  if (!result) {
+    printw("Error al obtener resultados de cotizaciones\n");
+    getch();
+    exit(1);
+  }
+
+  int flag = 0; // 0: unknown id. 1: invoiced id. 2: OK id.
+  MYSQL_ROW row;
+  while ((row = mysql_fetch_row(result))) {
+    if (quotationId == atoi(row[0])) {
+      if (strcmp(row[1], "Pendiente") == 0) {
+        flag = 2;
+      } else {
+        flag = 1;
+      }
+      break;
+    }
+  }
+  mysql_free_result(result);
+
+  if (flag == 0) { // If quotation doesn't exist.
     String *title = newString("Cotización no encontrada.");
     String *msg = newString("Error: No existe ninguna cotización con el número introducido.");
     showAlert(title, msg, tHeight / 2, 1);
     deleteString(title);
     deleteString(msg);
     return;
-  } else if (0) { // If quotation exists but is already invoiced.
+  } else if (flag == 1) { // If quotation exists but is already invoiced.
     String *title = newString("Cotización ya facturada.");
     String *msg = newString("Error: La cotización asociada al número introducido ya fue facturada.");
     showAlert(title, msg, tHeight / 2, 1);
@@ -1231,6 +1263,41 @@ void makeInvoice(MYSQL *conn) {
   String *date = newString(buffer);
 
   PtrArray *rows = newPtrArray(); // This is a list of lists of strings.
+  PtrArray *ids = newPtrArray();
+
+  char buf[512] = {0};
+  sprintf(buf, "SELECT p.descripcion, f.descripcion, dc.cantidad, p.precio, p.precio * dc.cantidad, p.id_producto FROM Producto p JOIN Familia f ON p.id_familia = f.id_familia JOIN DetalleCotizacion dc ON p.id_producto = dc.id_producto WHERE dc.id_cotizacion = %i;", quotationId);
+
+  if (mysql_query(conn, buf)) {
+    printw("Error al consultar: %s\n", mysql_error(conn));
+    refresh();
+    getch();
+    return;
+  }
+
+  MYSQL_RES *res = mysql_store_result(conn);
+  if (!res) {
+    printw("Error al obtener resultados de familias\n");
+    refresh();
+    getch();
+    return;
+  }
+
+  int i = 1;
+  while ((row = mysql_fetch_row(res))) {
+    PtrArray *tableRow = newPtrArray();
+    ptrArrayAppend(newStringI(i), tableRow);
+    ptrArrayAppend(newString(row[0]), tableRow);
+    ptrArrayAppend(newString(row[1]), tableRow);
+    ptrArrayAppend(newString(row[2]), tableRow);
+    ptrArrayAppend(newString(row[3]), tableRow);
+    ptrArrayAppend(newString(row[4]), tableRow);
+    ptrArrayAppend(tableRow, rows);
+    ptrArrayAppend(newString(row[5]), ids);
+    i++;
+  }
+  mysql_free_result(res);
+
   String *helpBar1 = newString("Puede usar las flechas para subir y bajar");
   String *helpBar2 = newString("Cancelar: C  |  Aceptar: A");
 
@@ -1318,6 +1385,70 @@ void makeInvoice(MYSQL *conn) {
              totalStr->len, totalStr->text, total);
     keyPressed = getch();
   } while (keyPressed != '\n');
+
+  String *s = newString("¿Desea facturar? Ingrese s/n");
+  int opt = showCharAlert(NULL, s, 3, 0);
+  deleteString(s);
+  if (opt == 's') {
+    MYSQL_STMT *stmtInv;
+    MYSQL_BIND bindInv[3];
+
+    stmtInv = mysql_stmt_init(conn);
+    if (stmtInv == NULL) {
+      printw("Error inicializando stmt.");
+      getch();
+      exit(1);
+    }
+
+    char query[] = "CALL AgregarFactura(?, @idFactura, @resultado)";
+    if (mysql_stmt_prepare(stmtInv, query, strlen(query))) {
+      printw("%s", mysql_stmt_error(stmtInv));
+      getch();
+      exit(1);
+    }
+
+    memset(bindInv, 0, sizeof(bindInv));
+
+    bindInv[0].buffer_type = MYSQL_TYPE_LONG;
+    bindInv[0].buffer = (char*)&quotationId;
+    bindInv[0].is_null = 0;
+    bindInv[0].length = 0;
+
+    if (mysql_stmt_bind_param(stmtInv, bindInv)) {
+      printw("%s", mysql_stmt_error(stmtInv));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_stmt_execute(stmtInv)) {
+      printw("%s", mysql_stmt_error(stmtInv));
+      getch();
+      exit(1);
+    }
+
+    if (mysql_query(conn, "SELECT @idFactura, @resultado")) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    MYSQL_RES *resInv = mysql_store_result(conn);
+    if (resInv == NULL) {
+      printw("%s", mysql_error(conn));
+      getch();
+      exit(1);
+    }
+
+    MYSQL_ROW rowInv  = mysql_fetch_row(resInv);
+    int result = atoi(rowInv[1]);
+    result++; // to use after.
+    mysql_free_result(resInv);
+    mysql_stmt_close(stmtInv);
+
+    String *s = newString("Cotización facturada satisfactoriamente");
+    showAlert(NULL, s, 3, 0);
+    deleteString(s);
+  }
 
   deleteString(title);
   deleteString(helpBar1);

@@ -247,19 +247,20 @@ BEGIN
     DECLARE v_existe_cotizacion INT;
     DECLARE v_total_items INT;
     DECLARE v_stock_insuficiente INT DEFAULT 0;
-    
+
     START TRANSACTION;
-    
+
     SELECT COUNT(*), estado INTO v_existe_cotizacion, v_estado 
-    FROM Cotizacion WHERE id_cotizacion = p_id_cotizacion;
-    
+    FROM Cotizacion WHERE id_cotizacion = p_id_cotizacion
+    GROUP BY estado;
+
     IF v_existe_cotizacion = 0 THEN
         SET p_resultado = 1;
     ELSE
         SELECT COUNT(*) INTO v_total_items 
         FROM DetalleCotizacion 
         WHERE id_cotizacion = p_id_cotizacion;
-        
+
         IF v_total_items = 0 THEN
             SET p_resultado = 2;
         ELSE
@@ -267,7 +268,7 @@ BEGIN
             FROM DetalleCotizacion dc
             JOIN Producto p ON dc.id_producto = p.id_producto
             WHERE dc.id_cotizacion = p_id_cotizacion AND dc.cantidad > p.stock;
-            
+
             IF v_stock_insuficiente > 0 THEN
                 SET p_resultado = 3;
             ELSE
@@ -275,17 +276,17 @@ BEGIN
                 JOIN DetalleCotizacion dc ON p.id_producto = dc.id_producto
                 SET p.stock = p.stock - dc.cantidad
                 WHERE dc.id_cotizacion = p_id_cotizacion;
-                
+
                 INSERT INTO Factura (fecha, hora, id_cotizacion)
                 VALUES (CURDATE(), CURTIME(), p_id_cotizacion);
-                
+
                 SET p_id_factura = LAST_INSERT_ID();
                 UPDATE Cotizacion SET estado = 'Facturado' WHERE id_cotizacion = p_id_cotizacion;
                 SET p_resultado = 0;
             END IF;
         END IF;
     END IF;
-    
+
     COMMIT;
 END //
 
