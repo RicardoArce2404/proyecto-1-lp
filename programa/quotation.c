@@ -998,10 +998,31 @@ void editQuotation(MYSQL *conn) {
         amountStr = showInput(title, 2, 1);
       }
       deleteString(title);
+
       int amount = toInt(amountStr);
       MYSQL_ROW dbRow = mysql_fetch_row(productResult);
       int stock = atoi(dbRow[2]);
-      if (amount > stock) {
+      int currAmount = 0;
+      int isUsed = 0;
+      for (int i = 0; i < rows->len; i++) {
+        PtrArray *row = rows->data[i];
+        if (compareStringToBuffer(row->data[1], dbRow[1])) {
+          currAmount = toInt(row->data[3]);
+          if (currAmount + amount > stock) {
+            break;
+          }
+          double price = toDouble(row->data[4]);
+          double total = (currAmount + amount) * price;
+          deleteString(row->data[3]);
+          row->data[3] = newStringI(currAmount + amount);
+          deleteString(row->data[5]);
+          row->data[5] = newStringD(total);
+          isUsed = 1;
+          break;
+        }
+      }
+
+      if (currAmount + amount > stock) {
         String *msg = newString("Stock insuficiente");
         showAlert(NULL, msg, 3, 1);
         deleteString(msg);
@@ -1011,20 +1032,6 @@ void editQuotation(MYSQL *conn) {
         break;
       }
 
-      int isUsed = 0;
-      for (int i = 0; i < rows->len; i++) {
-        PtrArray *row = rows->data[i];
-        if (compareStringToBuffer(row->data[1], dbRow[1])) {
-          int currAmount = toInt(row->data[3]);
-          double price = toDouble(row->data[4]);
-          double total = (currAmount + amount) * price;
-          deleteString(row->data[3]);
-          row->data[3] = newStringI(currAmount + amount);
-          deleteString(row->data[5]);
-          row->data[5] = newStringD(total);
-          isUsed = 1;
-        }
-      }
       if (isUsed) {
         mysql_free_result(productResult);
         deleteString(amountStr);
@@ -1252,7 +1259,22 @@ void makeInvoice(MYSQL *conn) {
   }
   deleteString(title);
 
-  String *invoiceId = newString("1");
+  if (mysql_query(conn, "SELECT COALESCE(MAX(id_factura), 1) FROM Factura")) {
+    printw("Error al consultar cotizaciones: %s\n", mysql_error(conn));
+    getch();
+    exit(1);
+  }
+
+  result = mysql_store_result(conn);
+  if (!result) {
+    printw("Error al obtener resultados de cotizaciones\n");
+    getch();
+    exit(1);
+  }
+
+  row = mysql_fetch_row(result);
+  String *invoiceId = newStringI(atoi(row[0]));
+  mysql_free_result(result);
   String *localName = newString("PulpeTEC");
   String *legalId = newString("3-101-123456");
   String *phoneNum = newString("1234-5678");
@@ -1288,7 +1310,7 @@ void makeInvoice(MYSQL *conn) {
     PtrArray *tableRow = newPtrArray();
     ptrArrayAppend(newStringI(i), tableRow);
     ptrArrayAppend(newString(row[0]), tableRow);
-    ptrArrayAppend(newString(row[1]), tableRow);
+    /*ptrArrayAppend(newString(row[1]), tableRow);*/
     ptrArrayAppend(newString(row[2]), tableRow);
     ptrArrayAppend(newString(row[3]), tableRow);
     ptrArrayAppend(newString(row[4]), tableRow);
@@ -1369,19 +1391,25 @@ void makeInvoice(MYSQL *conn) {
     int summaryRow = detailsRow + rows->len;
     printLineD(summaryRow, ulCornerCol + 1, width - 1, 1);
 
-    int subtotal = 0;
-    int taxes = 0;
-    int total = 0;
+
+    double subtotal = 0;
+    for (int i = 0; i < rows->len; i++) {
+      PtrArray *row = rows->data[i];
+      String *totalStr = row->data[4];
+      subtotal += toDouble(totalStr);
+    }
+    double taxes = subtotal * 0.13;
+    double total = subtotal + taxes;
     // The + 1 is to take into account the column separator.
     int c = ulCornerCol + width - widths->data[4] + 1;
     int subtotalCol = c - subtotalStr->len;
     int taxesCol = c - taxesStr->len;
     int totalCol = c - totalStr->len;
-    mvprintw(summaryRow + 1, subtotalCol, "%.*s %i",
+    mvprintw(summaryRow + 1, subtotalCol, "%.*s %.1f",
              subtotalStr->len, subtotalStr->text, subtotal);
-    mvprintw(summaryRow + 2, taxesCol, "%.*s %i",
+    mvprintw(summaryRow + 2, taxesCol, "%.*s %.1f",
              taxesStr->len, taxesStr->text, taxes);
-    mvprintw(summaryRow + 3, totalCol, "%.*s %i",
+    mvprintw(summaryRow + 3, totalCol, "%.*s %.1f",
              totalStr->len, totalStr->text, total);
     keyPressed = getch();
   } while (keyPressed != '\n');
@@ -1391,7 +1419,7 @@ void makeInvoice(MYSQL *conn) {
   deleteString(s);
   if (opt == 's') {
     MYSQL_STMT *stmtInv;
-    MYSQL_BIND bindInv[3];
+    MYSQL_BIND bindInv[4];
 
     stmtInv = mysql_stmt_init(conn);
     if (stmtInv == NULL) {
@@ -1400,7 +1428,7 @@ void makeInvoice(MYSQL *conn) {
       exit(1);
     }
 
-    char query[] = "CALL AgregarFactura(?, @idFactura, @resultado)";
+    char query[] = "CALL AgregarFactura(?, ?, @idFactura, @resultado)";
     if (mysql_stmt_prepare(stmtInv, query, strlen(query))) {
       printw("%s", mysql_stmt_error(stmtInv));
       getch();
@@ -1413,6 +1441,13 @@ void makeInvoice(MYSQL *conn) {
     bindInv[0].buffer = (char*)&quotationId;
     bindInv[0].is_null = 0;
     bindInv[0].length = 0;
+
+    bindInv[1].buffer_type = MYSQL_TYPE_STRING;
+    bindInv[1].buffer = (char*)client->text;
+    bindInv[1].buffer_length = 50;
+    bindInv[1].is_null = 0;
+    unsigned long len = client->len;
+    bindInv[1].length = &len;
 
     if (mysql_stmt_bind_param(stmtInv, bindInv)) {
       printw("%s", mysql_stmt_error(stmtInv));
@@ -1461,8 +1496,10 @@ void makeInvoice(MYSQL *conn) {
   deleteIntArray(widths);
   for (int i = 0; i < rows->len; i++) {
     deleteStringArray(rows->data[i]);
+    deleteString(ids->data[i]);
   }
   deletePtrArray(rows);
+  deletePtrArray(ids);
   deleteString(invoiceId);
   deleteString(localName);
   deleteString(legalId);

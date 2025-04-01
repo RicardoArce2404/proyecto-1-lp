@@ -240,6 +240,7 @@ DELIMITER //
 
 CREATE PROCEDURE AgregarFactura(
     IN p_id_cotizacion INT,
+    IN p_cliente VARCHAR(50),
     OUT p_id_factura INT,
     OUT p_resultado INT) -- 1: Cotización no existe, 2: Sin items, 3: Stock insuficiente, 0: Éxito
 BEGIN
@@ -277,8 +278,8 @@ BEGIN
                 SET p.stock = p.stock - dc.cantidad
                 WHERE dc.id_cotizacion = p_id_cotizacion;
 
-                INSERT INTO Factura (fecha, hora, id_cotizacion)
-                VALUES (CURDATE(), CURTIME(), p_id_cotizacion);
+                INSERT INTO Factura (fecha, hora, cliente, id_cotizacion)
+                VALUES (CURDATE(), CURTIME(), p_cliente, p_id_cotizacion);
 
                 SET p_id_factura = LAST_INSERT_ID();
                 UPDATE Cotizacion SET estado = 'Facturado' WHERE id_cotizacion = p_id_cotizacion;

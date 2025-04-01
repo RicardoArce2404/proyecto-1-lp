@@ -67,6 +67,9 @@ String *newStringI(int i) {
   if (i < 0) { // One more space for the minus sign.
     len++;
   }
+  if (i == 0) {
+    len = 1;
+  }
   char *buffer = malloc(sizeof(char) * (len + 1));
   sprintf(buffer, "%i", i);
   buffer[len] = '\0';
