@@ -86,7 +86,6 @@ int adminLogin(MYSQL *conn) {
         printw("Inicio de sesión exitoso.\n");
         return 1; // Credenciales correctas
     } else {
-        printw("Nombre de usuario o contraseña incorrectos.\n");
         return 0; // Credenciales incorrectas
     }
 }
