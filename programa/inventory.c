@@ -1,3 +1,6 @@
+#ifndef INVENTORY_C
+#define INVENTORY_C
+
 #include "ui.c"
 #include <stdio.h>
 #include <stdlib.h>
@@ -1477,3 +1480,5 @@ void deleteProduct(MYSQL *conn) {
         deleteString(continueMsg);
     }
 }
+
+#endif
