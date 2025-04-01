@@ -789,11 +789,9 @@ void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpda
     if (successfulUpdates && successfulUpdates->len > 0) {
         PtrArray *headings = newPtrArray();
         ptrArrayAppend(newString("ID Producto"), headings);
-        ptrArrayAppend(newString("Operación"), headings);
         ptrArrayAppend(newString("Cantidad"), headings);
 
         IntArray *widths = newIntArray();
-        intArrayAppend(15, widths);
         intArrayAppend(15, widths);
         intArrayAppend(10, widths);
 
@@ -804,7 +802,6 @@ void showInventoryUpdateResults(PtrArray *successfulUpdates, PtrArray *errorUpda
             PtrArray *row = newPtrArray();
             
             ptrArrayAppend(newString(update->id_producto->text), row);
-            ptrArrayAppend(newString(update->operacion ? "SUMAR" : "RESTAR"), row);
             
             char cantidadStr[12];
             snprintf(cantidadStr, sizeof(cantidadStr), "%d", update->cantidad);

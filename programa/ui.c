@@ -348,6 +348,40 @@ int showScrollableList(String *title, PtrArray *headings, PtrArray *rows,
   return numVisibleRows;
 }
 
+/**
+ * Muestra una pantalla de bienvenida con el título centrado
+ * @param title Título principal
+ * @param subtitle Subtítulo opcional (puede ser NULL)
+ */
+void showWelcomeScreen(const char *title, const char *subtitle) {
+  clear();
+  int maxY, maxX;
+  getmaxyx(stdscr, maxY, maxX);
+  
+  // Calcular posición central
+  int titleLen = strlen(title);
+  int titleX = (maxX - titleLen) / 2;
+  int titleY = maxY / 2 - 2;
+  
+  // Mostrar título
+  mvprintw(titleY, titleX, "%s", title);
+  
+  // Mostrar subtítulo si existe
+  if (subtitle) {
+      int subLen = strlen(subtitle);
+      int subX = (maxX - subLen) / 2;
+      mvprintw(titleY + 2, subX, "%s", subtitle);
+  }
+  
+  // Mostrar mensaje para continuar
+  String *continueMsg = newString("Presione cualquier tecla para continuar");
+  mvprintw(maxY - 2, (maxX - continueMsg->len)/2, "%.*s", continueMsg->len, continueMsg->text);
+  deleteString(continueMsg);
+  
+  refresh();
+  getch();
+}
+
 #endif // Ui!!
 // + ¡¿Ui?!
 // - Ui.
